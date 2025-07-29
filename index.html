@@ -47,7 +47,10 @@
     <div id="app-container" class="hidden md:flex min-h-screen">
         <!-- Sidebar Navigation -->
         <aside class="w-64 bg-[#E9E7E2] p-6 flex flex-col dark:bg-zinc-800">
-            <h1 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-12">TimeBill Pro</h1>
+            <div class="mb-8 flex justify-center">
+                <img src="assets/images/logo.jpg" alt="TechFix Solutions logo featuring a circular design with stylized cityscape and circuit lines in purple gradient, with the text TECHFIX SOLUTIONS below. The logo conveys a modern, innovative, and professional technology service in a sleek, dark-themed environment." class="h-28 w-auto rounded-2xl shadow-lg bg-white dark:bg-zinc-700 p-2">
+            </div>
+            <h1 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-12">TimeBill Pro de Techfix solutions</h1>
             <nav class="flex flex-col space-y-2">
                 <a href="#dashboard" class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
                     <span>📊</span>
@@ -57,6 +60,7 @@
                     <span>👥</span>
                     <span>Clientes</span>
                 </a>
+                
             </nav>
             <div class="mt-auto">
                 <p class="text-sm text-gray-500 dark:text-zinc-400">Usuario: Profesional</p>
@@ -72,7 +76,7 @@
             <!-- Dashboard Page -->
             <div id="page-dashboard" class="page">
                 <h2 class="text-3xl font-bold mb-2">Panel de Control</h2>
-                <p class="text-gray-600 dark:text-zinc-300 mb-8">Inicia una sesión para comenzar a registrar tu tiempo y generar una factura para tu cliente.</p>
+                <p class="text-gray-600 dark:text-zinc-300 mb-8"> para comenzar a registrar tu tiempo y generar un cobro para tu cliente.</p>
                 
                 <div class="bg-white p-8 rounded-2xl shadow-lg max-w-4xl mx-auto dark:bg-zinc-700">
                     <!-- Timer Display -->
@@ -490,13 +494,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function enableDarkMode() {
         document.documentElement.classList.add('dark');
-        elements.darkModeToggle.textContent = 'Modo Claro ☀️';
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Claro ☀️';
         localStorage.setItem('theme', 'dark');
     }
 
     function disableDarkMode() {
         document.documentElement.classList.remove('dark');
-        elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
         localStorage.setItem('theme', 'light');
     }
 
@@ -519,7 +523,8 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.logoutButton.addEventListener('click', () => {
         elements.appContainer.classList.add('hidden');
         elements.loginModal.classList.remove('hidden');
-        setTimeout(() => elements.loginModal.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0'), 10);
+        elements.loginModal.querySelector('.modal-content').classList.remove('opacity-0');
+        setTimeout(() => elements.loginModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
     });
 
     elements.navItems.forEach(item => {
@@ -602,6 +607,10 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.darkModeToggle.addEventListener('click', toggleDarkMode);
 
     elements.sendWhatsappButton.addEventListener('click', () => {
+        if (!appState.currentInvoiceData) {
+            showToast('Primero debes finalizar una sesión para generar la información de la factura.');
+            return;
+        }
         const { client, hours, rate, total } = appState.currentInvoiceData;
         // Prepara el mensaje
         const mensaje =
