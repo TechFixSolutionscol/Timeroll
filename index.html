@@ -68,6 +68,9 @@
                     Modo Oscuro 🌙
                 </button>
                 <button id="logout-button" class="w-full mt-2 text-left text-red-500 hover:text-red-700 font-semibold">Cerrar Sesión</button>
+                <button id="setup-tables-button" class="w-full mt-4 text-left text-gray-700 hover:text-gray-900 font-semibold dark:text-gray-300 dark:hover:text-white transition-colors duration-200">
+                    Configurar Tablas
+                </button>
             </div>
         </aside>
 
@@ -147,13 +150,26 @@
 
     <!-- Login Modal -->
     <div id="login-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center transform scale-95 dark:bg-zinc-700">
-            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4">Bienvenido a TimeBill Pro</h2>
-            <p class="text-gray-600 dark:text-zinc-300 mb-8">Inicia sesión para gestionar tu tiempo y facturación.</p>
-            <button id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
-                Ingresar (Demo)
-            </button>
-            <p class="text-xs text-gray-400 dark:text-zinc-500 mt-4">Esto es una simulación. No se requiere usuario ni contraseña.</p>
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform scale-95 dark:bg-zinc-700">
+            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4 text-center">Bienvenido a TimeBill Pro</h2>
+            <p class="text-gray-600 dark:text-zinc-300 mb-8 text-center">Inicia sesión para gestionar tu tiempo y facturación.</p>
+            <form id="login-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="login-email" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Correo Electrónico</label>
+                        <input type="email" id="login-email" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="login-password" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Contraseña</label>
+                        <input type="password" id="login-password" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div class="mt-8">
+                    <button type="submit" id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
+                        Ingresar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -227,14 +243,53 @@
         <p id="toast-message"></p>
     </div>
 
+    <!-- Invoice Modal -->
+    <div id="invoice-modal" class="hidden modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl transform scale-95 dark:bg-zinc-700">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold text-indigo-800 dark:text-indigo-300">Cuenta de Cobro</h2>
+                <p class="text-gray-500 dark:text-zinc-400 mb-6">Sesión Finalizada</p>
+            </div>
+            <div id="invoice-content" class="space-y-4 text-lg border-t border-b py-6 my-6 border-gray-200 dark:border-zinc-600">
+                <!-- Invoice details will be injected here -->
+            </div>
+            <div class="mt-6">
+                <button id="generate-email-button" class="w-full bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-cyan-700 transition-transform transform hover:scale-105 mb-4 flex items-center justify-center space-x-2">
+                    <span id="generate-email-spinner" class="spinner hidden"></span>
+                    <span>✨ Generar Borrador de Correo</span>
+                </button>
+                <div id="email-draft-container" class="hidden bg-gray-100 p-4 rounded-lg border border-gray-300 dark:bg-zinc-800 dark:border-zinc-600 text-sm mb-4">
+                    <p class="font-semibold mb-2 dark:text-zinc-200">Borrador de Correo:</p>
+                    <pre id="email-draft-display" class="whitespace-pre-wrap font-sans text-gray-800 dark:text-zinc-100"></pre>
+                    <button id="copy-email-draft-button" class="mt-3 w-full md:w-auto bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition-transform transform hover:scale-105 dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500">Copiar</button>
+                </div>
+                <div class="text-center mt-6">
+                    <p class="text-sm text-gray-600 dark:text-zinc-300 mb-4">Se enviará una copia de esta cuenta de cobro al correo del cliente.</p>
+                    <button id="send-invoice-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-green-700 transition-transform transform hover:scale-105 mb-2">
+                        Enviar Factura
+                    </button>
+                    <button id="send-whatsapp-button" class="w-full md:w-auto bg-green-500 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-green-600 transition-transform transform hover:scale-105">
+                        Enviar por WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
+    // ----------------------------------------------------------------------------------
+    // IMPORTANT: To deploy this application, you must:
+    // 1. Create a new Google Apps Script project and paste the contents of `Code.gs` into it.
+    // 2. Deploy the script as a web app.
+    // 3. Copy the web app URL and paste it below, replacing 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'.
+    // ----------------------------------------------------------------------------------
+    const GAS_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+
     const appState = {
-        clients: [
-             { id: 1, name: 'Cliente de Ejemplo S.A.S', email: 'ejemplo@correo.com', phone: '3001234567', address: 'Calle Falsa 123' },
-        ],
+        clients: [],
         timer: {
             interval: null,
             startTime: 0,
@@ -243,8 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isPaused: false,
         },
         activeView: 'dashboard',
-        nextClientId: 2,
-        currentInvoiceData: null, // To store invoice data for email generation
+        currentInvoiceData: null,
     };
 
     const $ = (selector) => document.querySelector(selector);
@@ -253,8 +307,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         appContainer: $('#app-container'),
         loginModal: $('#login-modal'),
-        loginButton: $('#login-button'),
+        loginForm: $('#login-form'),
         logoutButton: $('#logout-button'),
+        setupTablesButton: $('#setup-tables-button'),
         navItems: $$('.nav-item'),
         pages: $$('.page'),
         timerDisplay: $('#timer-display'),
@@ -283,6 +338,33 @@ document.addEventListener('DOMContentLoaded', () => {
         darkModeToggle: $('#dark-mode-toggle'),
         sendWhatsappButton: $('#send-whatsapp-button'),
     };
+
+    async function callAppsScript(action, payload = {}, method = 'GET') {
+        let url = `${GAS_URL}?action=${action}`;
+        const options = {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+
+        if (method === 'POST') {
+            options.method = 'POST';
+            options.body = JSON.stringify(payload);
+        }
+
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error calling Apps Script:', error);
+            showToast(`Error: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
 
     function showToast(message) {
         elements.toastMessage.textContent = message;
@@ -325,6 +407,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function loadClients() {
+        const response = await callAppsScript('getClients');
+        if (response.success) {
+            appState.clients = response.clients;
+            renderClients();
+        } else {
+            showToast(response.error || 'Failed to load clients.');
+        }
+    }
+
     function switchView(viewId) {
         appState.activeView = viewId;
         elements.pages.forEach(page => page.classList.add('hidden'));
@@ -361,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleInvoiceModal(show = false, data = null) {
         if (show && data) {
             const { client, hours, rate, total } = data;
-            appState.currentInvoiceData = data; // Store current invoice data
+            appState.currentInvoiceData = data;
             elements.invoiceContent.innerHTML = `
                 <div class="flex justify-between"><span class="font-semibold">Cliente:</span><span class="dark:text-zinc-200">${client.name}</span></div>
                 <div class="flex justify-between"><span class="font-semibold">Correo:</span><span class="dark:text-zinc-200">${client.email}</span></div>
@@ -369,7 +461,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex justify-between"><span class="font-semibold">Tarifa:</span><span class="dark:text-zinc-200">$${rate.toFixed(2)} / hora</span></div>
                 <div class="flex justify-between font-bold text-2xl mt-4 pt-4 border-t border-gray-200 dark:border-zinc-600"><span class="font-semibold">TOTAL:</span><span class="dark:text-zinc-200">$${total.toFixed(2)}</span></div>
             `;
-            // Reset email draft display
             elements.emailDraftContainer.classList.add('hidden');
             elements.emailDraftDisplay.textContent = '';
             elements.invoiceModal.classList.remove('hidden');
@@ -442,7 +533,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggleInvoiceModal(true, { client, hours, rate, total });
         
-        // Reset state
         appState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
         elements.timerDisplay.textContent = '00:00:00';
         elements.startPauseButton.textContent = 'Iniciar Sesión';
@@ -453,72 +543,32 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.clientSelect.value = '';
     }
 
-    async function generateEmailDraft() {
-        const { client, hours, total } = appState.currentInvoiceData;
-        
-        elements.generateEmailButton.disabled = true;
-        elements.generateEmailSpinner.classList.remove('hidden');
-        elements.emailDraftDisplay.textContent = 'Generando borrador...';
-        elements.emailDraftContainer.classList.remove('hidden');
+    async function handleLogin(e) {
+        e.preventDefault();
+        const email = $('#login-email').value;
+        const password = $('#login-password').value;
+        const response = await callAppsScript('login', { email, password }, 'POST');
 
-        const prompt = `Genera un borrador de correo electrónico profesional y amigable para enviar una factura a un cliente. La sesión duró ${hours.toFixed(2)} horas y el total a pagar es $${total.toFixed(2)}. El cliente se llama ${client.name} y su correo es ${client.email}. El correo debe ser conciso, agradecer por la oportunidad y recordar el valor de nuestro servicio. Incluye un saludo y una despedida formales. No incluyas información de contacto más allá del nombre del cliente y el total.`;
-
-        try {
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-            const payload = { contents: chatHistory };
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, {
-                       method: 'POST',
-                       headers: { 'Content-Type': 'application/json' },
-                       body: JSON.stringify(payload)
-                   });
-            const result = await response.json();
-            if (result.candidates && result.candidates.length > 0 &&
-                result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
-              const text = result.candidates[0].content.parts[0].text;
-              elements.emailDraftDisplay.textContent = text;
-            } else {
-              elements.emailDraftDisplay.textContent = 'No se pudo generar el borrador de correo. Inténtalo de nuevo.';
-            }
-        } catch (error) {
-            console.error('Error al llamar a la API de Gemini:', error);
-            elements.emailDraftDisplay.textContent = 'Error al generar el borrador. Por favor, revisa tu conexión.';
-        } finally {
-            elements.generateEmailButton.disabled = false;
-            elements.generateEmailSpinner.classList.add('hidden');
-        }
-    }
-
-    function enableDarkMode() {
-        document.documentElement.classList.add('dark');
-        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Claro ☀️';
-        localStorage.setItem('theme', 'dark');
-    }
-
-    function disableDarkMode() {
-        document.documentElement.classList.remove('dark');
-        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
-        localStorage.setItem('theme', 'light');
-    }
-
-    function toggleDarkMode() {
-        if (document.documentElement.classList.contains('dark')) {
-            disableDarkMode();
+        if (response.success) {
+            elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+            setTimeout(async () => {
+                elements.loginModal.classList.add('hidden');
+                elements.appContainer.classList.remove('hidden');
+                await loadClients();
+                switchView('dashboard');
+            }, 300);
         } else {
-            enableDarkMode();
+            showToast(response.message || 'Login failed.');
         }
     }
 
-    elements.loginButton.addEventListener('click', () => {
-        elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            elements.loginModal.classList.add('hidden');
-            elements.appContainer.classList.remove('hidden');
-        }, 300);
-    });
+    async function handleSetupTables() {
+        const response = await callAppsScript('setup', {}, 'POST');
+        showToast(response.message || (response.success ? 'Tables setup complete.' : 'Setup failed.'));
+    }
+
+    elements.loginForm.addEventListener('submit', handleLogin);
+    elements.setupTablesButton.addEventListener('click', handleSetupTables);
     
     elements.logoutButton.addEventListener('click', () => {
         elements.appContainer.classList.add('hidden');
@@ -538,31 +588,30 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
     elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
 
-    elements.clientForm.addEventListener('submit', (e) => {
+    elements.clientForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = parseInt(elements.clientIdInput.value);
         const clientData = {
+            id,
             name: $('#client-name').value,
             email: $('#client-email').value,
             phone: $('#client-phone').value,
             address: $('#client-address').value,
         };
 
-        if (id) {
-            const index = appState.clients.findIndex(c => c.id === id);
-            appState.clients[index] = { ...clientData, id };
-             showToast('Cliente actualizado con éxito.');
-        } else {
-            clientData.id = appState.nextClientId++;
-            appState.clients.push(clientData);
-             showToast('Cliente añadido con éxito.');
-        }
+        const action = id ? 'updateClient' : 'addClient';
+        const response = await callAppsScript(action, clientData, 'POST');
 
-        renderClients();
-        toggleClientModal(false);
+        if (response.success) {
+            showToast(`Cliente ${id ? 'actualizado' : 'añadido'} con éxito.`);
+            await loadClients();
+            toggleClientModal(false);
+        } else {
+            showToast(response.error || 'Operation failed.');
+        }
     });
     
-    elements.clientsTableBody.addEventListener('click', e => {
+    elements.clientsTableBody.addEventListener('click', async e => {
         const target = e.target;
         if(target.classList.contains('edit-client-btn')) {
             const id = parseInt(target.dataset.id);
@@ -572,21 +621,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if(target.classList.contains('delete-client-btn')) {
             const id = parseInt(target.dataset.id);
             if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-                 appState.clients = appState.clients.filter(c => c.id !== id);
-                 renderClients();
-                 showToast('Cliente eliminado.');
+                 const response = await callAppsScript('deleteClient', { id }, 'POST');
+                 if(response.success){
+                     showToast('Cliente eliminado.');
+                     await loadClients();
+                 } else {
+                     showToast(response.error || 'Failed to delete client.');
+                 }
             }
         }
     });
     
     elements.startPauseButton.addEventListener('click', () => {
-        if (appState.timer.isRunning) {
-            pauseTimer();
-        } else if (appState.timer.isPaused) {
-            resumeTimer();
-        } else {
-            startTimer();
-        }
+        if (appState.timer.isRunning) pauseTimer();
+        else if (appState.timer.isPaused) resumeTimer();
+        else startTimer();
     });
 
     elements.stopButton.addEventListener('click', stopTimer);
@@ -600,8 +649,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     elements.copyEmailDraftButton.addEventListener('click', () => {
         const emailText = elements.emailDraftDisplay.textContent;
-        document.execCommand('copy'); // Using execCommand for better iframe compatibility
-        showToast('Borrador de correo copiado al portapapeles.');
+        navigator.clipboard.writeText(emailText).then(() => {
+            showToast('Borrador de correo copiado al portapapeles.');
+        });
     });
 
     elements.darkModeToggle.addEventListener('click', toggleDarkMode);
@@ -627,17 +677,69 @@ document.addEventListener('DOMContentLoaded', () => {
         window.open(url, '_blank');
     });
 
+    function enableDarkMode() {
+        document.documentElement.classList.add('dark');
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Claro ☀️';
+        localStorage.setItem('theme', 'dark');
+    }
+
+    function disableDarkMode() {
+        document.documentElement.classList.remove('dark');
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
+        localStorage.setItem('theme', 'light');
+    }
+
+    function toggleDarkMode() {
+        if (document.documentElement.classList.contains('dark')) disableDarkMode();
+        else enableDarkMode();
+    }
+
+    async function generateEmailDraft() {
+        const { client, hours, total } = appState.currentInvoiceData;
+
+        elements.generateEmailButton.disabled = true;
+        elements.generateEmailSpinner.classList.remove('hidden');
+        elements.emailDraftDisplay.textContent = 'Generando borrador...';
+        elements.emailDraftContainer.classList.remove('hidden');
+
+        const prompt = `Genera un borrador de correo electrónico profesional y amigable para enviar una factura a un cliente. La sesión duró ${hours.toFixed(2)} horas y el total a pagar es $${total.toFixed(2)}. El cliente se llama ${client.name} y su correo es ${client.email}. El correo debe ser conciso, agradecer por la oportunidad y recordar el valor de nuestro servicio. Incluye un saludo y una despedida formales. No incluyas información de contacto más allá del nombre del cliente y el total.`;
+
+        try {
+            // NOTE: This is a placeholder for a call to a generative AI API.
+            // You would replace this with a real API call.
+            const text = `Asunto: Cuenta de Cobro por Servicios Profesionales
+
+Estimado/a ${client.name},
+
+Espero que te encuentres muy bien.
+
+Adjunto la cuenta de cobro correspondiente a la sesión de trabajo realizada.
+
+   - Duración: ${hours.toFixed(2)} horas
+   - Total a Pagar: $${total.toFixed(2)}
+
+Agradezco tu confianza en mis servicios.
+
+Saludos cordiales,
+[Tu Nombre]`;
+            elements.emailDraftDisplay.textContent = text;
+        } catch (error) {
+            console.error('Error generating email draft:', error);
+            elements.emailDraftDisplay.textContent = 'Error al generar el borrador.';
+        } finally {
+            elements.generateEmailButton.disabled = false;
+            elements.generateEmailSpinner.classList.add('hidden');
+        }
+    }
+
     function init() {
-        // Initialize theme based on localStorage or system preference
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             enableDarkMode();
         } else {
             disableDarkMode();
         }
-
-        switchView('dashboard');
-        renderClients();
+        // Client rendering is now triggered by successful login
     }
 
     init();
