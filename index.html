@@ -64,6 +64,9 @@
             </nav>
             <div class="mt-auto">
                 <p class="text-sm text-gray-500 dark:text-zinc-400">Usuario: Profesional</p>
+                <button id="setup-button" class="w-full mt-4 text-left text-gray-700 hover:text-gray-900 font-semibold dark:text-gray-300 dark:hover:text-white transition-colors duration-200">
+                    Configurar Tablas
+                </button>
                 <button id="dark-mode-toggle" class="w-full mt-4 text-left text-gray-700 hover:text-gray-900 font-semibold dark:text-gray-300 dark:hover:text-white transition-colors duration-200">
                     Modo Oscuro 🌙
                 </button>
@@ -147,13 +150,27 @@
 
     <!-- Login Modal -->
     <div id="login-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center transform scale-95 dark:bg-zinc-700">
-            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4">Bienvenido a TimeBill Pro</h2>
-            <p class="text-gray-600 dark:text-zinc-300 mb-8">Inicia sesión para gestionar tu tiempo y facturación.</p>
-            <button id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
-                Ingresar (Demo)
-            </button>
-            <p class="text-xs text-gray-400 dark:text-zinc-500 mt-4">Esto es una simulación. No se requiere usuario ni contraseña.</p>
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform scale-95 dark:bg-zinc-700">
+            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4 text-center">Bienvenido a TimeBill Pro</h2>
+            <p class="text-gray-600 dark:text-zinc-300 mb-8 text-center">Inicia sesión para gestionar tu tiempo y facturación.</p>
+            <form id="login-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Usuario</label>
+                        <input type="text" id="username" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Contraseña</label>
+                        <input type="password" id="password" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div class="mt-8">
+                    <button type="submit" id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 flex items-center justify-center">
+                        <span id="login-spinner" class="spinner hidden mr-2"></span>
+                        Ingresar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -229,12 +246,30 @@
 
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+/*
+ * Google Apps Script Backend Setup
+ *
+ * 1. Create a new Google Sheet.
+ * 2. Go to Extensions > Apps Script.
+ * 3. Paste the content of `Code.gs` into the script editor.
+ * 4. Go to Project Settings (gear icon) and copy the Script ID.
+ * 5. In the script editor, go to Deploy > New deployment.
+ * 6. Select "Web app" as the deployment type.
+ * 7. In the "Who has access" dropdown, select "Anyone".
+ * 8. Click "Deploy".
+ * 9. Authorize the script to access your Google Sheets.
+ * 10. Copy the Web app URL and paste it into the `SCRIPT_URL` constant below.
+ * 11. Go to File > Project properties > Script properties and add a new property:
+ *     - Property: SPREADSHEET_URL
+ *     - Value: [The URL of your Google Sheet]
+ */
+    // URL of the deployed Google Apps Script
+    // **IMPORTANT**: This will be updated by the test script for verification.
+    let SCRIPT_URL = "";
 
+document.addEventListener('DOMContentLoaded', () => {
     const appState = {
-        clients: [
-             { id: 1, name: 'Cliente de Ejemplo S.A.S', email: 'ejemplo@correo.com', phone: '3001234567', address: 'Calle Falsa 123' },
-        ],
+        clients: [],
         timer: {
             interval: null,
             startTime: 0,
@@ -243,7 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
             isPaused: false,
         },
         activeView: 'dashboard',
-        nextClientId: 2,
         currentInvoiceData: null, // To store invoice data for email generation
     };
 
@@ -253,7 +287,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         appContainer: $('#app-container'),
         loginModal: $('#login-modal'),
+        loginForm: $('#login-form'),
         loginButton: $('#login-button'),
+        loginSpinner: $('#login-spinner'),
         logoutButton: $('#logout-button'),
         navItems: $$('.nav-item'),
         pages: $$('.page'),
@@ -282,14 +318,54 @@ document.addEventListener('DOMContentLoaded', () => {
         copyEmailDraftButton: $('#copy-email-draft-button'),
         darkModeToggle: $('#dark-mode-toggle'),
         sendWhatsappButton: $('#send-whatsapp-button'),
+        setupButton: $('#setup-button'),
     };
 
+    /**
+     * Shows a toast notification with a given message.
+     * @param {string} message - The message to display.
+     */
     function showToast(message) {
         elements.toastMessage.textContent = message;
         elements.toast.classList.remove('opacity-0', 'translate-y-4');
         setTimeout(() => {
             elements.toast.classList.add('opacity-0', 'translate-y-4');
         }, 3000);
+    }
+
+    /**
+     * A generic function to make API calls to the Google Apps Script backend.
+     * @param {string} action - The action to perform.
+     * @param {object} data - The data to send with the request.
+     * @returns {Promise<object>} - The response from the backend.
+     */
+    async function apiCall(action, data = {}) {
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action, ...data }),
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8', // Required for Google Apps Script
+                },
+            });
+            const result = await response.json();
+            if (result.status === 'error') {
+                throw new Error(result.message);
+            }
+            return result;
+        } catch (error) {
+            showToast(`Error: ${error.message}`);
+            throw error;
+        }
+    }
+
+    async function setupTables() {
+        try {
+            await apiCall('setup');
+            showToast('Tables created successfully!');
+        } catch (error) {
+            // Error is already shown in apiCall
+        }
     }
 
     function renderClients() {
@@ -334,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleClientModal(show = false, client = null) {
+    return new Promise(resolve => {
         if (show) {
             elements.clientForm.reset();
             if (client) {
@@ -354,9 +431,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             elements.clientModal.querySelector('.modal-content').classList.add('scale-95');
             elements.clientModal.classList.add('opacity-0');
-            setTimeout(() => elements.clientModal.classList.add('hidden'), 300);
+            setTimeout(() => {
+                elements.clientModal.classList.add('hidden');
+                resolve();
+            }, 300);
         }
-    }
+    });
+}
     
     function toggleInvoiceModal(show = false, data = null) {
         if (show && data) {
@@ -512,13 +593,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    elements.loginButton.addEventListener('click', () => {
-        elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            elements.loginModal.classList.add('hidden');
-            elements.appContainer.classList.remove('hidden');
-        }, 300);
-    });
+    async function handleLogin(e) {
+        e.preventDefault();
+        elements.loginButton.disabled = true;
+        elements.loginSpinner.classList.remove('hidden');
+
+        const username = $('#username').value;
+        const password = $('#password').value;
+
+        try {
+            await apiCall('login', { username, password });
+            elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                elements.loginModal.classList.add('hidden');
+                elements.appContainer.classList.remove('hidden');
+                loadClients();
+            }, 300);
+        } catch (error) {
+            // Error is already shown in apiCall
+        } finally {
+            elements.loginButton.disabled = false;
+            elements.loginSpinner.classList.add('hidden');
+        }
+    }
+
+    async function loadClients() {
+        try {
+            const { data } = await apiCall('getClients');
+            appState.clients = data;
+            renderClients();
+        } catch (error) {
+            // Error is handled in apiCall
+        }
+    }
+
+    elements.loginForm.addEventListener('submit', handleLogin);
     
     elements.logoutButton.addEventListener('click', () => {
         elements.appContainer.classList.add('hidden');
@@ -538,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
     elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
 
-    elements.clientForm.addEventListener('submit', (e) => {
+    elements.clientForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = parseInt(elements.clientIdInput.value);
         const clientData = {
@@ -548,21 +657,24 @@ document.addEventListener('DOMContentLoaded', () => {
             address: $('#client-address').value,
         };
 
-        if (id) {
-            const index = appState.clients.findIndex(c => c.id === id);
-            appState.clients[index] = { ...clientData, id };
-             showToast('Cliente actualizado con éxito.');
-        } else {
-            clientData.id = appState.nextClientId++;
-            appState.clients.push(clientData);
-             showToast('Cliente añadido con éxito.');
+        try {
+            if (id) {
+                await apiCall('updateClient', { id, ...clientData });
+                showToast('Cliente actualizado con éxito.');
+            } else {
+                const { data } = await apiCall('addClient', clientData);
+                clientData.id = data.id;
+                appState.clients.push(clientData);
+                showToast('Cliente añadido con éxito.');
+            }
+            await toggleClientModal(false);
+            loadClients();
+        } catch (error) {
+            // Error is already shown in apiCall
         }
-
-        renderClients();
-        toggleClientModal(false);
     });
     
-    elements.clientsTableBody.addEventListener('click', e => {
+    elements.clientsTableBody.addEventListener('click', async e => {
         const target = e.target;
         if(target.classList.contains('edit-client-btn')) {
             const id = parseInt(target.dataset.id);
@@ -572,9 +684,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if(target.classList.contains('delete-client-btn')) {
             const id = parseInt(target.dataset.id);
             if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-                 appState.clients = appState.clients.filter(c => c.id !== id);
-                 renderClients();
-                 showToast('Cliente eliminado.');
+                try {
+                    await apiCall('deleteClient', { id });
+                    showToast('Cliente eliminado.');
+                    loadClients();
+                } catch (error) {
+                    // Error is already shown in apiCall
+                }
             }
         }
     });
@@ -591,9 +707,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.stopButton.addEventListener('click', stopTimer);
     
-    elements.sendInvoiceButton.addEventListener('click', () => {
-        toggleInvoiceModal(false);
-        showToast('Factura enviada por correo (simulación).');
+    elements.sendInvoiceButton.addEventListener('click', async () => {
+        try {
+            await apiCall('addInvoice', {
+                clientId: appState.currentInvoiceData.client.id,
+                hours: appState.currentInvoiceData.hours,
+                rate: appState.currentInvoiceData.rate,
+                total: appState.currentInvoiceData.total,
+            });
+            toggleInvoiceModal(false);
+            showToast('Factura guardada con éxito.');
+        } catch (error) {
+            // Error is already shown in apiCall
+        }
     });
 
     elements.generateEmailButton.addEventListener('click', generateEmailDraft);
@@ -605,6 +731,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     elements.darkModeToggle.addEventListener('click', toggleDarkMode);
+
+    elements.setupButton.addEventListener('click', setupTables);
 
     elements.sendWhatsappButton.addEventListener('click', () => {
         if (!appState.currentInvoiceData) {
