@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeBill Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chosen Palette: Deep Indigo, Accent Cyan, Neutral Browns/Greys (Light Mode) / Deep Zinc, Lighter Indigo, Accent Cyan (Dark Mode) -->
+    <!-- Application Structure Plan: A task-oriented SPA with sidebar navigation switching between a main 'Dashboard' (for time tracking) and a 'Clients' management view. This structure separates the primary task (tracking) from the secondary setup task (managing clients), making the user flow logical and efficient. Modals are used for focused actions like login, adding/editing clients, and viewing the generated invoice, preventing clutter in the main interface and guiding the user through specific workflows. -->
+    <!-- Visualization & Content Choices:
+        - Client Management: Goal: Organize. Method: A dynamic HTML table in the 'Clients' section with Add/Edit/Delete buttons. Interaction: A modal form for creating/editing client data, which updates a JS array and re-renders the table. Justification: Standard, intuitive CRUD interface that keeps the main view clean. Library: Vanilla JS + Tailwind.
+        - Time Tracking: Goal: Inform & Control. Method: A large digital display for the timer with clear Start/Pause/Stop controls on the 'Dashboard'. Interaction: Buttons change state and functionality (e.g., Start -> Pause), providing clear visual feedback on the current timer status. Justification: Universally understood controls for a primary user task. Library: Vanilla JS.
+        - Invoicing: Goal: Summarize & Confirm. Method: An auto-appearing modal upon stopping the timer. Interaction: The modal displays a clear calculation of time and cost and requires a final user action ("Send Invoice") to complete the workflow. Additionally, a new feature allows generating an email draft for the invoice using the Gemini API. Justification: Provides immediate, focused confirmation without navigating away, streamlining the final step, and enhances communication with LLM assistance. Library: Vanilla JS + Tailwind + Gemini API.
+        - Dark Mode Toggle: Goal: Customization. Method: A button in the sidebar to switch themes. Interaction: Toggles a 'dark' class on the root HTML element, applying Tailwind's dark mode variants. Justification: Enhances user comfort and personalization. Library: Vanilla JS + Tailwind.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <?!= include('templates/styles.html'); ?>
+</head>
+<body class="bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100">
+
+    <!-- Main Container -->
+    <div id="app-container" class="hidden md:flex min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-[#E9E7E2] p-6 flex flex-col dark:bg-zinc-800">
+            <div class="mb-8 flex justify-center">
+                <img src="assets/images/logo.jpg" alt="TechFix Solutions logo featuring a circular design with stylized cityscape and circuit lines in purple gradient, with the text TECHFIX SOLUTIONS below. The logo conveys a modern, innovative, and professional technology service in a sleek, dark-themed environment." class="h-28 w-auto rounded-2xl shadow-lg bg-white dark:bg-zinc-700 p-2">
+            </div>
+            <h1 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-12">TimeBill Pro de Techfix solutions</h1>
+            <nav class="flex flex-col space-y-2">
+                <a href="#dashboard" class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
+                    <span>📊</span>
+                    <span>Panel de Control</span>
+                </a>
+                <a href="#clients" class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
+                    <span>👥</span>
+                    <span>Clientes</span>
+                </a>
+
+            </nav>
+            <div class="mt-auto">
+                <p class="text-sm text-gray-500 dark:text-zinc-400">Usuario: Profesional</p>
+                <button id="dark-mode-toggle" class="w-full mt-4 text-left text-gray-700 hover:text-gray-900 font-semibold dark:text-gray-300 dark:hover:text-white transition-colors duration-200">
+                    Modo Oscuro 🌙
+                </button>
+                <button id="logout-button" class="w-full mt-2 text-left text-red-500 hover:text-red-700 font-semibold">Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 md:p-10">
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page">
+                <h2 class="text-3xl font-bold mb-2">Panel de Control</h2>
+                <p class="text-gray-600 dark:text-zinc-300 mb-8"> para comenzar a registrar tu tiempo y generar un cobro para tu cliente.</p>
+
+                <div class="bg-white p-8 rounded-2xl shadow-lg max-w-4xl mx-auto dark:bg-zinc-700">
+                    <!-- Timer Display -->
+                    <div class="text-center mb-6">
+                        <p class="timer-font text-7xl md:text-8xl font-bold text-indigo-800 dark:text-indigo-300" id="timer-display">00:00:00</p>
+                    </div>
+
+                    <!-- Inputs -->
+                    <div class="grid md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                            <label for="client-select" class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Seleccionar Cliente</label>
+                            <select id="client-select" class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                                <option value="" class="bg-white dark:bg-zinc-800">Ningún cliente seleccionado</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="hourly-rate" class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Valor por Hora ($)</label>
+                            <input type="number" id="hourly-rate" placeholder="Ej: 50" class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex justify-center items-center space-x-4">
+                        <button id="start-pause-button" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg text-xl hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-md">Iniciar Sesión</button>
+                        <button id="stop-button" class="hidden bg-red-600 text-white font-bold py-3 px-8 rounded-lg text-xl hover:bg-red-700 transition-all duration-200 transform hover:scale-105 shadow-md">Detener Sesión</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clients Page -->
+            <div id="page-clients" class="page hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold">Gestión de Clientes</h2>
+                        <p class="text-gray-600 dark:text-zinc-300">Añade, edita o elimina la información de tus clientes.</p>
+                    </div>
+                    <button id="add-client-button" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 shadow-md">
+                        + Añadir Cliente
+                    </button>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-zinc-700">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-zinc-600">
+                                    <th class="p-4">Nombre</th>
+                                    <th class="p-4">Correo Electrónico</th>
+                                    <th class="p-4">Teléfono</th>
+                                    <th class="p-4">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clients-table-body">
+                                <!-- Client rows will be inserted here -->
+                            </tbody>
+                        </table>
+                        <p id="no-clients-message" class="text-center text-gray-500 dark:text-zinc-400 py-8">No hay clientes registrados.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Mobile View Placeholder -->
+    <div id="mobile-message" class="md:hidden flex flex-col items-center justify-center min-h-screen text-center p-4 bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100">
+        <h2 class="text-2xl font-bold mb-4">TimeBill Pro</h2>
+        <p>Esta aplicación está optimizada para la vista de escritorio. Por favor, abre en una pantalla más grande.</p>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform scale-95 dark:bg-zinc-700">
+            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4 text-center">Bienvenido a TimeBill Pro</h2>
+            <p class="text-gray-600 dark:text-zinc-300 mb-8 text-center">Inicia sesión para continuar.</p>
+            <form id="login-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Usuario</label>
+                        <input type="text" id="username" value="demo" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Contraseña</label>
+                        <input type="password" id="password" value="demo" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div class="mt-8">
+                    <button type="submit" id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
+                        Ingresar
+                    </button>
+                </div>
+            </form>
+             <div class="mt-4 text-center">
+                 <button id="setup-button" class="text-sm text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200">¿Necesitas configurar la base de datos? Click aquí</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Form Modal -->
+    <div id="client-modal" class="hidden modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg transform scale-95 dark:bg-zinc-700">
+            <h2 id="client-modal-title" class="text-2xl font-bold mb-6">Añadir Nuevo Cliente</h2>
+            <form id="client-form">
+                <input type="hidden" id="client-id">
+                <div class="space-y-4">
+                    <div>
+                        <label for="client-name" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Nombre del Cliente/Empresa</label>
+                        <input type="text" id="client-name" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="client-email" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Correo Electrónico</label>
+                        <input type="email" id="client-email" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="client-phone" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Teléfono</label>
+                        <input type="tel" id="client-phone" class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="client-address" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Dirección</label>
+                        <input type="text" id="client-address" class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-4">
+                    <button type="button" id="cancel-client-modal" class="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 transition dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500">Cancelar</button>
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition">Guardar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Invoice Modal -->
+    <div id="invoice-modal" class="hidden modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl transform scale-95 dark:bg-zinc-700">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold text-indigo-800 dark:text-indigo-300">Cuenta de Cobro</h2>
+                <p class="text-gray-500 dark:text-zinc-400 mb-6">Sesión Finalizada</p>
+            </div>
+            <div id="invoice-content" class="space-y-4 text-lg border-t border-b py-6 my-6 border-gray-200 dark:border-zinc-600">
+                <!-- Invoice details will be injected here -->
+            </div>
+            <div class="mt-6">
+                <button id="generate-email-button" class="w-full bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-cyan-700 transition-transform transform hover:scale-105 mb-4 flex items-center justify-center space-x-2">
+                    <span id="generate-email-spinner" class="spinner hidden"></span>
+                    <span>✨ Generar Borrador de Correo</span>
+                </button>
+                <div id="email-draft-container" class="hidden bg-gray-100 p-4 rounded-lg border border-gray-300 dark:bg-zinc-800 dark:border-zinc-600 text-sm mb-4">
+                    <p class="font-semibold mb-2 dark:text-zinc-200">Borrador de Correo:</p>
+                    <pre id="email-draft-display" class="whitespace-pre-wrap font-sans text-gray-800 dark:text-zinc-100"></pre>
+                    <button id="copy-email-draft-button" class="mt-3 w-full md:w-auto bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition-transform transform hover:scale-105 dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500">Copiar</button>
+                </div>
+                <div class="text-center mt-6">
+                    <p class="text-sm text-gray-600 dark:text-zinc-300 mb-4">Se enviará una copia de esta cuenta de cobro al correo del cliente.</p>
+                    <button id="send-invoice-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-green-700 transition-transform transform hover:scale-105 mb-2">
+                        Enviar Factura
+                    </button>
+                    <button id="send-whatsapp-button" class="w-full md:w-auto bg-green-500 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-green-600 transition-transform transform hover:scale-105">
+                        Enviar por WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="fixed bottom-10 right-10 bg-green-500 text-white py-3 px-6 rounded-lg shadow-xl text-lg opacity-0 translate-y-4 transition-all duration-500 dark:bg-green-700">
+        <p id="toast-message"></p>
+    </div>
+
+<?!= include('templates/scripts.html'); ?>
+</body>
+</html>
