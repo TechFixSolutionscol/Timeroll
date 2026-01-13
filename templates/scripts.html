@@ -1,0 +1,399 @@
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const appState = {
+        clients: [], // Los datos se cargarán desde el backend
+        timer: {
+            interval: null,
+            startTime: 0,
+            elapsedTime: 0,
+            isRunning: false,
+            isPaused: false,
+        },
+        activeView: 'dashboard',
+        currentInvoiceData: null,
+        currentUser: null,
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => document.querySelectorAll(selector);
+
+    const elements = {
+        appContainer: $('#app-container'),
+        loginModal: $('#login-modal'),
+        loginButton: $('#login-button'),
+        registerButton: $('#register-button'),
+        setupDbButton: $('#setup-db-button'),
+        loginEmailInput: $('#login-email'),
+        loginPasswordInput: $('#login-password'),
+        logoutButton: $('#logout-button'),
+        userDisplay: $('#user-display'), // Necesitarás añadir un <p id="user-display">...</p> en el HTML
+        navItems: $$('.nav-item'),
+        pages: $$('.page'),
+        timerDisplay: $('#timer-display'),
+        clientSelect: $('#client-select'),
+        hourlyRate: $('#hourly-rate'),
+        startPauseButton: $('#start-pause-button'),
+        stopButton: $('#stop-button'),
+        clientsTableBody: $('#clients-table-body'),
+        addClientButton: $('#add-client-button'),
+        clientModal: $('#client-modal'),
+        clientForm: $('#client-form'),
+        cancelClientModal: $('#cancel-client-modal'),
+        clientIdInput: $('#client-id'),
+        clientModalTitle: $('#client-modal-title'),
+        invoiceModal: $('#invoice-modal'),
+        invoiceContent: $('#invoice-content'),
+        sendInvoiceButton: $('#send-invoice-button'),
+        noClientsMessage: $('#no-clients-message'),
+        toast: $('#toast-notification'),
+        toastMessage: $('#toast-message'),
+        generateEmailButton: $('#generate-email-button'),
+        generateEmailSpinner: $('#generate-email-spinner'),
+        emailDraftContainer: $('#email-draft-container'),
+        emailDraftDisplay: $('#email-draft-display'),
+        copyEmailDraftButton: $('#copy-email-draft-button'),
+        darkModeToggle: $('#dark-mode-toggle'),
+        sendWhatsappButton: $('#send-whatsapp-button'),
+    };
+
+    function showToast(message, isError = false) {
+        elements.toastMessage.textContent = message;
+        elements.toast.className = `fixed bottom-10 right-10 text-white py-3 px-6 rounded-lg shadow-xl text-lg opacity-0 translate-y-4 transition-all duration-500 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+        elements.toast.classList.remove('opacity-0', 'translate-y-4');
+        setTimeout(() => {
+            elements.toast.classList.add('opacity-0', 'translate-y-4');
+        }, 3000);
+    }
+
+    function renderClients(clients) {
+        appState.clients = clients;
+        elements.clientsTableBody.innerHTML = '';
+        elements.clientSelect.innerHTML = '<option value="">Ningún cliente seleccionado</option>';
+
+        if (clients.length === 0) {
+            elements.noClientsMessage.classList.remove('hidden');
+            elements.clientsTableBody.classList.add('hidden');
+        } else {
+            elements.noClientsMessage.classList.add('hidden');
+            elements.clientsTableBody.classList.remove('hidden');
+            clients.forEach(client => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-gray-50 dark:hover:bg-zinc-600';
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${client.Name}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Email}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Phone || 'N/A'}</td>
+                    <td class="p-4">
+                        <button class="edit-client-btn text-blue-600 hover:text-blue-800 mr-4" data-id="${client.ID}">Editar</button>
+                        <button class="delete-client-btn text-red-600 hover:text-red-800" data-id="${client.ID}">Eliminar</button>
+                    </td>
+                `;
+                elements.clientsTableBody.appendChild(tr);
+
+                const option = document.createElement('option');
+                option.value = client.ID;
+                option.textContent = client.Name;
+                elements.clientSelect.appendChild(option);
+            });
+        }
+    }
+
+    function loadClients() {
+        google.script.run
+            .withSuccessHandler(renderClients)
+            .withFailureHandler(error => showToast(`Error al cargar clientes: ${error.message}`, true))
+            .getClients();
+    }
+
+    function switchView(viewId) {
+        appState.activeView = viewId;
+        elements.pages.forEach(page => page.classList.add('hidden'));
+        $(`#page-${viewId}`).classList.remove('hidden');
+        elements.navItems.forEach(item => item.classList.remove('active'));
+        $(`a[href="#${viewId}"]`).classList.add('active');
+    }
+
+    function toggleClientModal(show = false, client = null) {
+        if (show) {
+            elements.clientForm.reset();
+            if (client) {
+                elements.clientModalTitle.textContent = 'Editar Cliente';
+                $('#client-id').value = client.ID;
+                $('#client-name').value = client.Name;
+                $('#client-email').value = client.Email;
+                $('#client-phone').value = client.Phone;
+                $('#client-address').value = client.Address;
+            } else {
+                elements.clientModalTitle.textContent = 'Añadir Nuevo Cliente';
+            }
+            elements.clientModal.classList.remove('hidden');
+        } else {
+            elements.clientModal.classList.add('hidden');
+        }
+    }
+
+    function toggleInvoiceModal(show = false, data = null) {
+        if (show && data) {
+            const { client, hours, rate, total } = data;
+            appState.currentInvoiceData = data;
+            elements.invoiceContent.innerHTML = `
+                <div class="flex justify-between"><span class="font-semibold">Cliente:</span><span>${client.Name}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Correo:</span><span>${client.Email}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Duración:</span><span>${hours.toFixed(4)} horas</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Tarifa:</span><span>$${rate.toFixed(2)} / hora</span></div>
+                <div class="flex justify-between font-bold text-2xl mt-4 pt-4 border-t"><span class="font-semibold">TOTAL:</span><span>$${total.toFixed(2)}</span></div>
+            `;
+            elements.emailDraftContainer.classList.add('hidden');
+            elements.invoiceModal.classList.remove('hidden');
+        } else {
+            elements.invoiceModal.classList.add('hidden');
+        }
+    }
+
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+        const diff = Date.now() - appState.timer.startTime + appState.timer.elapsedTime;
+        elements.timerDisplay.textContent = formatTime(diff);
+    }
+
+    function startTimer() {
+        if (!elements.clientSelect.value || !elements.hourlyRate.value) {
+            showToast('Por favor, selecciona un cliente y define una tarifa.', true);
+            return;
+        }
+        appState.timer.isRunning = true;
+        appState.timer.isPaused = false;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+        elements.stopButton.classList.remove('hidden');
+        elements.clientSelect.disabled = true;
+        elements.hourlyRate.disabled = true;
+    }
+
+    function pauseTimer() {
+        appState.timer.isPaused = true;
+        appState.timer.isRunning = false;
+        appState.timer.elapsedTime += Date.now() - appState.timer.startTime;
+        clearInterval(appState.timer.interval);
+        elements.startPauseButton.textContent = 'Reanudar';
+    }
+
+    function resumeTimer() {
+        appState.timer.isPaused = false;
+        appState.timer.isRunning = true;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+    }
+
+    function stopTimer() {
+        const finalElapsedTime = appState.timer.elapsedTime + (appState.timer.isRunning ? (Date.now() - appState.timer.startTime) : 0);
+        clearInterval(appState.timer.interval);
+        const hours = finalElapsedTime / 3600000;
+        const rate = parseFloat(elements.hourlyRate.value);
+        const total = hours * rate;
+        const client = appState.clients.find(c => c.ID == elements.clientSelect.value);
+        toggleInvoiceModal(true, { client, hours, rate, total });
+
+        appState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
+        elements.timerDisplay.textContent = '00:00:00';
+        elements.startPauseButton.textContent = 'Iniciar Sesión';
+        elements.stopButton.classList.add('hidden');
+        elements.clientSelect.disabled = false;
+        elements.hourlyRate.disabled = false;
+    }
+
+    function generateEmailDraft() {
+        elements.generateEmailButton.disabled = true;
+        elements.generateEmailSpinner.classList.remove('hidden');
+        elements.emailDraftContainer.classList.remove('hidden');
+
+        google.script.run
+            .withSuccessHandler(draft => {
+                elements.emailDraftDisplay.textContent = draft;
+                elements.generateEmailButton.disabled = false;
+                elements.generateEmailSpinner.classList.add('hidden');
+            })
+            .withFailureHandler(error => showToast(`Error: ${error.message}`, true))
+            .generateEmailDraft(appState.currentInvoiceData);
+    }
+
+    function enableDarkMode() {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    }
+
+    function disableDarkMode() {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+    }
+
+    function handleLogin() {
+        const email = elements.loginEmailInput.value;
+        const password = elements.loginPasswordInput.value;
+        if (!email || !password) {
+            showToast('Por favor, ingresa correo y contraseña.', true);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response.success) {
+                    appState.currentUser = response.email;
+                    elements.loginModal.classList.add('hidden');
+                    elements.appContainer.classList.remove('hidden');
+                    if (elements.userDisplay) elements.userDisplay.textContent = `Usuario: ${appState.currentUser}`;
+                    loadClients();
+                } else {
+                    showToast(response.error, true);
+                }
+            })
+            .withFailureHandler(error => showToast(`Error de conexión: ${error.message}`, true))
+            .loginUser(email, password);
+    }
+
+    function handleRegister() {
+        const email = elements.loginEmailInput.value;
+        const password = elements.loginPasswordInput.value;
+        if (!email || !password) {
+            showToast('Por favor, ingresa correo y contraseña para registrarte.', true);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response.success) {
+                    showToast(response.success);
+                } else {
+                    showToast(response.error, true);
+                }
+            })
+            .withFailureHandler(error => showToast(`Error de conexión: ${error.message}`, true))
+            .registerUser(email, password);
+    }
+
+    function handleSetupDatabase() {
+        showToast('Iniciando configuración de la base de datos...');
+        google.script.run
+            .withSuccessHandler(message => showToast(message))
+            .withFailureHandler(error => showToast(`Error: ${error.message}`, true))
+            .setupDatabase();
+    }
+
+    // --- EVENT LISTENERS ---
+
+    elements.loginButton.addEventListener('click', handleLogin);
+    elements.registerButton.addEventListener('click', handleRegister);
+    elements.setupDbButton.addEventListener('click', handleSetupDatabase);
+
+    elements.logoutButton.addEventListener('click', () => {
+        appState.currentUser = null;
+        elements.appContainer.classList.add('hidden');
+        elements.loginModal.classList.remove('hidden');
+    });
+
+    elements.navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView(e.currentTarget.getAttribute('href').substring(1));
+        });
+    });
+
+    elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
+    elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
+
+    elements.clientForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const clientData = {
+            ID: $('#client-id').value,
+            Name: $('#client-name').value,
+            Email: $('#client-email').value,
+            Phone: $('#client-phone').value,
+            Address: $('#client-address').value,
+        };
+        const action = clientData.ID ? 'updateClient' : 'addClient';
+        const successMessage = clientData.ID ? 'Cliente actualizado.' : 'Cliente añadido.';
+
+        google.script.run
+            .withSuccessHandler(() => {
+                showToast(successMessage);
+                loadClients();
+                toggleClientModal(false);
+            })
+            .withFailureHandler(error => showToast(`Error: ${error.message}`, true))
+            [action](clientData);
+    });
+
+    elements.clientsTableBody.addEventListener('click', e => {
+        const target = e.target;
+        const clientId = target.dataset.id;
+
+        if (target.classList.contains('edit-client-btn')) {
+            const client = appState.clients.find(c => c.ID === clientId);
+            toggleClientModal(true, client);
+        } else if (target.classList.contains('delete-client-btn')) {
+            if (confirm('¿Estás seguro?')) {
+                google.script.run
+                    .withSuccessHandler(() => {
+                        showToast('Cliente eliminado.');
+                        loadClients();
+                    })
+                    .withFailureHandler(error => showToast(`Error: ${error.message}`, true))
+                    .deleteClient(clientId);
+            }
+        }
+    });
+
+    elements.startPauseButton.addEventListener('click', () => {
+        if (appState.timer.isRunning) pauseTimer();
+        else if (appState.timer.isPaused) resumeTimer();
+        else startTimer();
+    });
+
+    elements.stopButton.addEventListener('click', stopTimer);
+
+    elements.sendInvoiceButton.addEventListener('click', () => {
+        toggleInvoiceModal(false);
+        showToast('Factura enviada (simulación).');
+    });
+
+    elements.generateEmailButton.addEventListener('click', generateEmailDraft);
+
+    elements.copyEmailDraftButton.addEventListener('click', () => {
+        navigator.clipboard.writeText(elements.emailDraftDisplay.textContent)
+            .then(() => showToast('Borrador copiado.'))
+            .catch(() => showToast('Error al copiar.', true));
+    });
+
+    elements.darkModeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    elements.sendWhatsappButton.addEventListener('click', () => {
+        const { client, hours, total } = appState.currentInvoiceData;
+        const mensaje = `Hola ${client.Name},\n\nResumen de servicio:\nDuración: ${hours.toFixed(2)}h\nTOTAL: $${total.toFixed(2)}\n\n¡Gracias!`;
+        let numero = (client.Phone || '').replace(/\D/g, '');
+        if (numero && !numero.startsWith('57')) numero = '57' + numero;
+        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, '_blank');
+    });
+
+    function init() {
+        if (localStorage.getItem('theme') === 'dark') {
+            enableDarkMode();
+        } else {
+            disableDarkMode();
+        }
+        // La aplicación comienza en el modal de login, no se carga nada más hasta el login.
+    }
+
+    init();
+});
+</script>
