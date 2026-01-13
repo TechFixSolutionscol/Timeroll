@@ -1,0 +1,508 @@
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- State Management ---
+    const appState = {
+        clients: [], // Will be populated from the backend
+        timer: {
+            interval: null,
+            startTime: 0,
+            elapsedTime: 0,
+            isRunning: false,
+            isPaused: false,
+        },
+        activeView: 'dashboard',
+        currentInvoiceData: null,
+        loggedInUser: null, // To store the logged-in user's info
+    };
+
+    // --- Element Selectors ---
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => document.querySelectorAll(selector);
+
+    const elements = {
+        appContainer: $('#app-container'),
+        loginModal: $('#login-modal'),
+        loginView: $('#login-view'),
+        registerView: $('#register-view'),
+        loginForm: $('#login-form'),
+        registerForm: $('#register-form'),
+        showRegister: $('#show-register'),
+        showLogin: $('#show-login'),
+        setupDbButton: $('#setup-db-button'),
+        logoutButton: $('#logout-button'),
+        navItems: $$('.nav-item'),
+        pages: $$('.page'),
+        timerDisplay: $('#timer-display'),
+        clientSelect: $('#client-select'),
+        hourlyRate: $('#hourly-rate'),
+        startPauseButton: $('#start-pause-button'),
+        stopButton: $('#stop-button'),
+        clientsTableBody: $('#clients-table-body'),
+        addClientButton: $('#add-client-button'),
+        clientModal: $('#client-modal'),
+        clientForm: $('#client-form'),
+        cancelClientModal: $('#cancel-client-modal'),
+        clientIdInput: $('#client-id'),
+        clientModalTitle: $('#client-modal-title'),
+        invoiceModal: $('#invoice-modal'),
+        invoiceContent: $('#invoice-content'),
+        sendInvoiceButton: $('#send-invoice-button'),
+        noClientsMessage: $('#no-clients-message'),
+        toast: $('#toast-notification'),
+        toastMessage: $('#toast-message'),
+        generateEmailButton: $('#generate-email-button'),
+        generateEmailSpinner: $('#generate-email-spinner'),
+        emailDraftContainer: $('#email-draft-container'),
+        emailDraftDisplay: $('#email-draft-display'),
+        copyEmailDraftButton: $('#copy-email-draft-button'),
+        darkModeToggle: $('#dark-mode-toggle'),
+        sendWhatsappButton: $('#send-whatsapp-button'),
+    };
+
+    // --- UI Utility Functions ---
+    function showToast(message, isError = false) {
+        elements.toastMessage.textContent = message;
+        elements.toast.className = `fixed bottom-10 right-10 text-white py-3 px-6 rounded-lg shadow-xl text-lg transition-all duration-500 ${isError ? 'bg-red-500 dark:bg-red-700' : 'bg-green-500 dark:bg-green-700'}`;
+        elements.toast.classList.remove('opacity-0', 'translate-y-4');
+        setTimeout(() => {
+            elements.toast.classList.add('opacity-0', 'translate-y-4');
+        }, 3000);
+    }
+
+    function setLoading(button, isLoading) {
+        if (isLoading) {
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner inline-block"></span>';
+        } else {
+            button.disabled = false;
+            button.innerHTML = button.dataset.originalText;
+        }
+    }
+
+    // --- Client Management ---
+    function renderClients() {
+        elements.clientsTableBody.innerHTML = '';
+        elements.clientSelect.innerHTML = '<option value="">Ningún cliente seleccionado</option>';
+
+        if (appState.clients.length === 0) {
+            elements.noClientsMessage.classList.remove('hidden');
+            elements.clientsTableBody.classList.add('hidden');
+        } else {
+            elements.noClientsMessage.classList.add('hidden');
+            elements.clientsTableBody.classList.remove('hidden');
+
+            appState.clients.forEach(client => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-gray-50 dark:hover:bg-zinc-600';
+                // Note the property names (ID, Name, Email, Phone) are capitalized as they come from the Sheet headers
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${client.Name}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Email}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Phone || 'N/A'}</td>
+                    <td class="p-4">
+                        <button class="edit-client-btn text-blue-600 hover:text-blue-800 mr-4" data-id="${client.ID}">Editar</button>
+                        <button class="delete-client-btn text-red-600 hover:text-red-800" data-id="${client.ID}">Eliminar</button>
+                    </td>
+                `;
+                elements.clientsTableBody.appendChild(tr);
+
+                const option = document.createElement('option');
+                option.value = client.ID;
+                option.textContent = client.Name;
+                elements.clientSelect.appendChild(option);
+            });
+        }
+    }
+
+    function refreshClients() {
+        google.script.run
+            .withSuccessHandler(clients => {
+                appState.clients = clients;
+                renderClients();
+            })
+            .withFailureHandler(err => showToast(err.message, true))
+            .getClients();
+    }
+
+    // --- Application Flow & Navigation ---
+    function switchView(viewId) {
+        appState.activeView = viewId;
+        elements.pages.forEach(page => page.classList.add('hidden'));
+        $(`#page-${viewId}`).classList.remove('hidden');
+        elements.navItems.forEach(item => item.classList.remove('active'));
+        $(`a[href="#${viewId}"]`).classList.add('active');
+    }
+
+    function showApp() {
+        elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            elements.loginModal.classList.add('hidden');
+            elements.appContainer.classList.remove('hidden');
+            refreshClients(); // Initial client load
+        }, 300);
+    }
+
+    function showLogin() {
+        appState.loggedInUser = null;
+        elements.appContainer.classList.add('hidden');
+        elements.loginModal.classList.remove('hidden');
+        elements.loginModal.querySelector('.modal-content').classList.remove('opacity-0', 'scale-95');
+    }
+
+    // --- Modals ---
+    function toggleClientModal(show = false, client = null) {
+        if (show) {
+            elements.clientForm.reset();
+            if (client) {
+                elements.clientModalTitle.textContent = 'Editar Cliente';
+                $('#client-id').value = client.ID;
+                $('#client-name').value = client.Name;
+                $('#client-email').value = client.Email;
+                $('#client-phone').value = client.Phone;
+                $('#client-address').value = client.Address;
+            } else {
+                elements.clientModalTitle.textContent = 'Añadir Nuevo Cliente';
+            }
+            elements.clientModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.clientModal.querySelector('.modal-content').classList.remove('scale-95');
+            }, 10);
+        } else {
+            elements.clientModal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => elements.clientModal.classList.add('hidden'), 300);
+        }
+    }
+
+    function toggleInvoiceModal(show = false, data = null) {
+        if (show && data) {
+            const { client, hours, rate, total } = data;
+            appState.currentInvoiceData = data;
+            elements.invoiceContent.innerHTML = `
+                <div class="flex justify-between"><span class="font-semibold">Cliente:</span><span class="dark:text-zinc-200">${client.Name}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Correo:</span><span class="dark:text-zinc-200">${client.Email}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Duración:</span><span class="dark:text-zinc-200">${hours.toFixed(4)} horas</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Tarifa:</span><span class="dark:text-zinc-200">$${rate.toFixed(2)} / hora</span></div>
+                <div class="flex justify-between font-bold text-2xl mt-4 pt-4 border-t border-gray-200 dark:border-zinc-600"><span class="font-semibold">TOTAL:</span><span class="dark:text-zinc-200">$${total.toFixed(2)}</span></div>
+            `;
+            elements.emailDraftContainer.classList.add('hidden');
+            elements.emailDraftDisplay.textContent = '';
+            elements.invoiceModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.invoiceModal.querySelector('.modal-content').classList.remove('scale-95');
+            }, 10);
+        } else {
+            elements.invoiceModal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => elements.invoiceModal.classList.add('hidden'), 300);
+        }
+    }
+
+    // --- Timer Logic ---
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+        const diff = Date.now() - appState.timer.startTime + appState.timer.elapsedTime;
+        elements.timerDisplay.textContent = formatTime(diff);
+    }
+
+    function startTimer() {
+        if (!elements.clientSelect.value) {
+            showToast('Por favor, selecciona un cliente.', true);
+            return;
+        }
+        if (!elements.hourlyRate.value || parseFloat(elements.hourlyRate.value) <= 0) {
+            showToast('Por favor, introduce un valor por hora válido.', true);
+            return;
+        }
+        appState.timer.isRunning = true;
+        appState.timer.isPaused = false;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+        elements.stopButton.classList.remove('hidden');
+        elements.clientSelect.disabled = true;
+        elements.hourlyRate.disabled = true;
+    }
+
+    function pauseTimer() {
+        appState.timer.isPaused = true;
+        appState.timer.isRunning = false;
+        appState.timer.elapsedTime += Date.now() - appState.timer.startTime;
+        clearInterval(appState.timer.interval);
+        elements.startPauseButton.textContent = 'Reanudar';
+    }
+
+    function resumeTimer() {
+        appState.timer.isPaused = false;
+        appState.timer.isRunning = true;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+    }
+
+    function stopTimer() {
+        const finalElapsedTime = appState.timer.elapsedTime + (appState.timer.isRunning ? (Date.now() - appState.timer.startTime) : 0);
+        clearInterval(appState.timer.interval);
+
+        const hours = finalElapsedTime / (1000 * 60 * 60);
+        const rate = parseFloat(elements.hourlyRate.value);
+        const total = hours * rate;
+        const client = appState.clients.find(c => c.ID == elements.clientSelect.value);
+
+        toggleInvoiceModal(true, { client, hours, rate, total });
+
+        // Reset state
+        appState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
+        elements.timerDisplay.textContent = '00:00:00';
+        elements.startPauseButton.textContent = 'Iniciar Sesión';
+        elements.stopButton.classList.add('hidden');
+        elements.clientSelect.disabled = false;
+        elements.hourlyRate.disabled = false;
+        elements.hourlyRate.value = '';
+        elements.clientSelect.value = '';
+    }
+
+    // --- Dark Mode ---
+    function enableDarkMode() {
+        document.documentElement.classList.add('dark');
+        elements.darkModeToggle.textContent = 'Modo Claro ☀️';
+        localStorage.setItem('theme', 'dark');
+    }
+
+    function disableDarkMode() {
+        document.documentElement.classList.remove('dark');
+        elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
+        localStorage.setItem('theme', 'light');
+    }
+
+    // --- Event Listeners ---
+    function setupEventListeners() {
+        // --- Authentication ---
+        elements.showRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            elements.loginView.classList.add('hidden');
+            elements.registerView.classList.remove('hidden');
+        });
+
+        elements.showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            elements.registerView.classList.add('hidden');
+            elements.loginView.classList.remove('hidden');
+        });
+
+        elements.loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = $('#login-username').value;
+            const password = $('#login-password').value;
+            const button = e.target.querySelector('button');
+            setLoading(button, true);
+
+            google.script.run
+                .withSuccessHandler(response => {
+                    setLoading(button, false);
+                    if (response.status === 'success') {
+                        appState.loggedInUser = username;
+                        showApp();
+                    } else {
+                        showToast(response.message, true);
+                    }
+                })
+                .withFailureHandler(err => {
+                    setLoading(button, false);
+                    showToast(err.message, true);
+                })
+                .loginUser(username, password);
+        });
+
+        elements.registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = $('#register-username').value;
+            const password = $('#register-password').value;
+            const button = e.target.querySelector('button');
+            setLoading(button, true);
+
+            google.script.run
+                .withSuccessHandler(response => {
+                    setLoading(button, false);
+                    if (response.status === 'success') {
+                        showToast('Registro exitoso. Ahora puedes iniciar sesión.');
+                        elements.registerView.classList.add('hidden');
+                        elements.loginView.classList.remove('hidden');
+                        elements.loginForm.reset();
+                        $('#login-username').value = username;
+                    } else {
+                        showToast(response.message, true);
+                    }
+                })
+                .withFailureHandler(err => {
+                    setLoading(button, false);
+                    showToast(err.message, true);
+                })
+                .registerUser(username, password);
+        });
+
+        elements.logoutButton.addEventListener('click', showLogin);
+
+        elements.setupDbButton.addEventListener('click', (e) => {
+             const button = e.currentTarget;
+             setLoading(button, true);
+             google.script.run
+                .withSuccessHandler(response => {
+                    setLoading(button, false);
+                    if (response.status === 'success') {
+                        showToast(response.message);
+                    } else {
+                        showToast(response.message, true);
+                    }
+                })
+                .withFailureHandler(err => {
+                    setLoading(button, false);
+                    showToast(err.message, true);
+                })
+                .setupDatabase();
+        });
+
+        // --- Navigation ---
+        elements.navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const viewId = e.currentTarget.getAttribute('href').substring(1);
+                switchView(viewId);
+            });
+        });
+
+        // --- Client Actions ---
+        elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
+        elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
+
+        elements.clientForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = elements.clientIdInput.value;
+            const clientData = {
+                name: $('#client-name').value,
+                email: $('#client-email').value,
+                phone: $('#client-phone').value,
+                address: $('#client-address').value,
+            };
+
+            if (id) { // Update existing client
+                clientData.id = id;
+                google.script.run
+                    .withSuccessHandler(() => {
+                        showToast('Cliente actualizado con éxito.');
+                        refreshClients();
+                    })
+                    .withFailureHandler(err => showToast(err.message, true))
+                    .updateClient(clientData);
+            } else { // Add new client
+                google.script.run
+                    .withSuccessHandler(() => {
+                        showToast('Cliente añadido con éxito.');
+                        refreshClients();
+                    })
+                    .withFailureHandler(err => showToast(err.message, true))
+                    .addClient(clientData);
+            }
+            toggleClientModal(false);
+        });
+
+        elements.clientsTableBody.addEventListener('click', e => {
+            const target = e.target;
+            const clientId = target.dataset.id;
+            if (target.classList.contains('edit-client-btn')) {
+                const client = appState.clients.find(c => c.ID === clientId);
+                toggleClientModal(true, client);
+            }
+            if (target.classList.contains('delete-client-btn')) {
+                if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
+                    google.script.run
+                        .withSuccessHandler(() => {
+                            showToast('Cliente eliminado.');
+                            refreshClients();
+                        })
+                        .withFailureHandler(err => showToast(err.message, true))
+                        .deleteClient(clientId);
+                }
+            }
+        });
+
+        // --- Timer Actions ---
+        elements.startPauseButton.addEventListener('click', () => {
+            if (appState.timer.isRunning) pauseTimer();
+            else if (appState.timer.isPaused) resumeTimer();
+            else startTimer();
+        });
+
+        elements.stopButton.addEventListener('click', stopTimer);
+        elements.sendInvoiceButton.addEventListener('click', () => {
+            toggleInvoiceModal(false);
+            showToast('Factura enviada por correo (simulación).');
+        });
+
+        // --- Gemini & WhatsApp ---
+        elements.generateEmailButton.addEventListener('click', () => {
+             elements.generateEmailButton.disabled = true;
+             elements.generateEmailSpinner.classList.remove('hidden');
+             google.script.run
+                .withSuccessHandler(draft => {
+                    elements.emailDraftDisplay.textContent = draft;
+                    elements.emailDraftContainer.classList.remove('hidden');
+                })
+                .withFailureHandler(err => {
+                    elements.emailDraftDisplay.textContent = 'Error: ' + err.message;
+                })
+                .withFinally(() => {
+                     elements.generateEmailButton.disabled = false;
+                     elements.generateEmailSpinner.classList.add('hidden');
+                })
+                .generateEmailDraft(appState.currentInvoiceData);
+        });
+
+        elements.copyEmailDraftButton.addEventListener('click', () => {
+            navigator.clipboard.writeText(elements.emailDraftDisplay.textContent)
+                .then(() => showToast('Borrador de correo copiado.'))
+                .catch(() => showToast('Error al copiar.', true));
+        });
+
+        elements.sendWhatsappButton.addEventListener('click', () => {
+            if (!appState.currentInvoiceData) return;
+            const { client, hours, rate, total } = appState.currentInvoiceData;
+            const mensaje = `Hola ${client.Name},\n\nTe envío la cuenta de cobro por la sesión realizada.\n\nDuración: ${hours.toFixed(2)} horas\nTarifa: $${rate.toFixed(2)} / hora\nTOTAL: $${total.toFixed(2)}\n\n¡Gracias por tu confianza!`;
+            let numero = client.Phone ? client.Phone.replace(/\D/g, '') : '';
+            if (numero && !numero.startsWith('57')) numero = '57' + numero;
+            const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+            window.open(url, '_blank');
+        });
+
+        // --- Misc ---
+        elements.darkModeToggle.addEventListener('click', () => {
+             if (document.documentElement.classList.contains('dark')) disableDarkMode();
+             else enableDarkMode();
+        });
+    }
+
+    // --- Initialization ---
+    function init() {
+        $$('button[type="submit"], #setup-db-button').forEach(btn => {
+            btn.dataset.originalText = btn.innerHTML;
+        });
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            enableDarkMode();
+        } else {
+            disableDarkMode();
+        }
+
+        setupEventListeners();
+        switchView('dashboard');
+    }
+
+    init();
+});
+</script>
