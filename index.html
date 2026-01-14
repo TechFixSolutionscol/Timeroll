@@ -5,41 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TimeBill Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chosen Palette: Deep Indigo, Accent Cyan, Neutral Browns/Greys (Light Mode) / Deep Zinc, Lighter Indigo, Accent Cyan (Dark Mode) -->
-    <!-- Application Structure Plan: A task-oriented SPA with sidebar navigation switching between a main 'Dashboard' (for time tracking) and a 'Clients' management view. This structure separates the primary task (tracking) from the secondary setup task (managing clients), making the user flow logical and efficient. Modals are used for focused actions like login, adding/editing clients, and viewing the generated invoice, preventing clutter in the main interface and guiding the user through specific workflows. -->
-    <!-- Visualization & Content Choices: 
-        - Client Management: Goal: Organize. Method: A dynamic HTML table in the 'Clients' section with Add/Edit/Delete buttons. Interaction: A modal form for creating/editing client data, which updates a JS array and re-renders the table. Justification: Standard, intuitive CRUD interface that keeps the main view clean. Library: Vanilla JS + Tailwind.
-        - Time Tracking: Goal: Inform & Control. Method: A large digital display for the timer with clear Start/Pause/Stop controls on the 'Dashboard'. Interaction: Buttons change state and functionality (e.g., Start -> Pause), providing clear visual feedback on the current timer status. Justification: Universally understood controls for a primary user task. Library: Vanilla JS.
-        - Invoicing: Goal: Summarize & Confirm. Method: An auto-appearing modal upon stopping the timer. Interaction: The modal displays a clear calculation of time and cost and requires a final user action ("Send Invoice") to complete the workflow. Additionally, a new feature allows generating an email draft for the invoice using the Gemini API. Justification: Provides immediate, focused confirmation without navigating away, streamlining the final step, and enhances communication with LLM assistance. Library: Vanilla JS + Tailwind + Gemini API.
-        - Dark Mode Toggle: Goal: Customization. Method: A button in the sidebar to switch themes. Interaction: Toggles a 'dark' class on the root HTML element, applying Tailwind's dark mode variants. Justification: Enhances user comfort and personalization. Library: Vanilla JS + Tailwind.
-    -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Orbitron:wght@400;700&display=swap');
-        .timer-font { font-family: 'Orbitron', sans-serif; }
-        .modal-backdrop {
-            transition: opacity 0.3s ease;
-        }
-        .modal-content {
-            transition: transform 0.3s ease;
-        }
-        .nav-item.active {
-            background-color: #4338CA; /* indigo-700 */
-            color: #F7FAFC; /* white */
-        }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #4F46E5; /* indigo-600 */
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+    <?!= include('styles'); ?>
 </head>
 <body class="bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100">
 
@@ -48,7 +14,7 @@
         <!-- Sidebar Navigation -->
         <aside class="w-64 bg-[#E9E7E2] p-6 flex flex-col dark:bg-zinc-800">
             <div class="mb-8 flex justify-center">
-                <img src="assets/images/logo.jpg" alt="TechFix Solutions logo featuring a circular design with stylized cityscape and circuit lines in purple gradient, with the text TECHFIX SOLUTIONS below. The logo conveys a modern, innovative, and professional technology service in a sleek, dark-themed environment." class="h-28 w-auto rounded-2xl shadow-lg bg-white dark:bg-zinc-700 p-2">
+                <img src="assets/images/logo.jpg" alt="TechFix Solutions logo" class="h-28 w-auto rounded-2xl shadow-lg bg-white dark:bg-zinc-700 p-2">
             </div>
             <h1 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-12">TimeBill Pro de Techfix solutions</h1>
             <nav class="flex flex-col space-y-2">
@@ -60,7 +26,6 @@
                     <span>👥</span>
                     <span>Clientes</span>
                 </a>
-                
             </nav>
             <div class="mt-auto">
                 <p class="text-sm text-gray-500 dark:text-zinc-400">Usuario: Profesional</p>
@@ -75,16 +40,20 @@
         <main class="flex-1 p-6 md:p-10">
             <!-- Dashboard Page -->
             <div id="page-dashboard" class="page">
-                <h2 class="text-3xl font-bold mb-2">Panel de Control</h2>
-                <p class="text-gray-600 dark:text-zinc-300 mb-8"> para comenzar a registrar tu tiempo y generar un cobro para tu cliente.</p>
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold">Panel de Control</h2>
+                        <p class="text-gray-600 dark:text-zinc-300">Inicia el temporizador para comenzar a registrar tu tiempo.</p>
+                    </div>
+                    <button id="setup-db-button" class="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition-transform transform hover:scale-105 shadow-md">
+                        Configurar Base de Datos
+                    </button>
+                </div>
                 
                 <div class="bg-white p-8 rounded-2xl shadow-lg max-w-4xl mx-auto dark:bg-zinc-700">
-                    <!-- Timer Display -->
                     <div class="text-center mb-6">
                         <p class="timer-font text-7xl md:text-8xl font-bold text-indigo-800 dark:text-indigo-300" id="timer-display">00:00:00</p>
                     </div>
-
-                    <!-- Inputs -->
                     <div class="grid md:grid-cols-2 gap-6 mb-8">
                         <div>
                             <label for="client-select" class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Seleccionar Cliente</label>
@@ -97,8 +66,6 @@
                             <input type="number" id="hourly-rate" placeholder="Ej: 50" class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
                         </div>
                     </div>
-
-                    <!-- Controls -->
                     <div class="flex justify-center items-center space-x-4">
                         <button id="start-pause-button" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg text-xl hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-md">Iniciar Sesión</button>
                         <button id="stop-button" class="hidden bg-red-600 text-white font-bold py-3 px-8 rounded-lg text-xl hover:bg-red-700 transition-all duration-200 transform hover:scale-105 shadow-md">Detener Sesión</button>
@@ -129,7 +96,6 @@
                                 </tr>
                             </thead>
                             <tbody id="clients-table-body">
-                                <!-- Client rows will be inserted here -->
                             </tbody>
                         </table>
                         <p id="no-clients-message" class="text-center text-gray-500 dark:text-zinc-400 py-8">No hay clientes registrados.</p>
@@ -139,509 +105,18 @@
         </main>
     </div>
     
-    <!-- Mobile View Placeholder -->
     <div id="mobile-message" class="md:hidden flex flex-col items-center justify-center min-h-screen text-center p-4 bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100">
         <h2 class="text-2xl font-bold mb-4">TimeBill Pro</h2>
         <p>Esta aplicación está optimizada para la vista de escritorio. Por favor, abre en una pantalla más grande.</p>
     </div>
 
-    <!-- Login Modal -->
-    <div id="login-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center transform scale-95 dark:bg-zinc-700">
-            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4">Bienvenido a TimeBill Pro</h2>
-            <p class="text-gray-600 dark:text-zinc-300 mb-8">Inicia sesión para gestionar tu tiempo y facturación.</p>
-            <button id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
-                Ingresar (Demo)
-            </button>
-            <p class="text-xs text-gray-400 dark:text-zinc-500 mt-4">Esto es una simulación. No se requiere usuario ni contraseña.</p>
-        </div>
-    </div>
-    
-    <!-- Client Form Modal -->
-    <div id="client-modal" class="hidden modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center p-4">
-        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg transform scale-95 dark:bg-zinc-700">
-            <h2 id="client-modal-title" class="text-2xl font-bold mb-6">Añadir Nuevo Cliente</h2>
-            <form id="client-form">
-                <input type="hidden" id="client-id">
-                <div class="space-y-4">
-                    <div>
-                        <label for="client-name" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Nombre del Cliente/Empresa</label>
-                        <input type="text" id="client-name" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label for="client-email" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Correo Electrónico</label>
-                        <input type="email" id="client-email" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label for="client-phone" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Teléfono</label>
-                        <input type="tel" id="client-phone" class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label for="client-address" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Dirección</label>
-                        <input type="text" id="client-address" class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
-                <div class="mt-8 flex justify-end space-x-4">
-                    <button type="button" id="cancel-client-modal" class="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 transition dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500">Cancelar</button>
-                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition">Guardar Cliente</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Invoice Modal -->
-    <div id="invoice-modal" class="hidden modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center p-4">
-        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl transform scale-95 dark:bg-zinc-700">
-            <div class="text-center">
-                <h2 class="text-3xl font-bold text-indigo-800 dark:text-indigo-300">Cuenta de Cobro</h2>
-                <p class="text-gray-500 dark:text-zinc-400 mb-6">Sesión Finalizada</p>
-            </div>
-            <div id="invoice-content" class="space-y-4 text-lg border-t border-b py-6 my-6 border-gray-200 dark:border-zinc-600">
-                <!-- Invoice details will be injected here -->
-            </div>
-            <div class="mt-6">
-                <button id="generate-email-button" class="w-full bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-cyan-700 transition-transform transform hover:scale-105 mb-4 flex items-center justify-center space-x-2">
-                    <span id="generate-email-spinner" class="spinner hidden"></span>
-                    <span>✨ Generar Borrador de Correo</span>
-                </button>
-                <div id="email-draft-container" class="hidden bg-gray-100 p-4 rounded-lg border border-gray-300 dark:bg-zinc-800 dark:border-zinc-600 text-sm mb-4">
-                    <p class="font-semibold mb-2 dark:text-zinc-200">Borrador de Correo:</p>
-                    <pre id="email-draft-display" class="whitespace-pre-wrap font-sans text-gray-800 dark:text-zinc-100"></pre>
-                    <button id="copy-email-draft-button" class="mt-3 w-full md:w-auto bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition-transform transform hover:scale-105 dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500">Copiar</button>
-                </div>
-                <div class="text-center mt-6">
-                    <p class="text-sm text-gray-600 dark:text-zinc-300 mb-4">Se enviará una copia de esta cuenta de cobro al correo del cliente.</p>
-                    <button id="send-invoice-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-green-700 transition-transform transform hover:scale-105 mb-2">
-                        Enviar Factura
-                    </button>
-                    <button id="send-whatsapp-button" class="w-full md:w-auto bg-green-500 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-green-600 transition-transform transform hover:scale-105">
-                        Enviar por WhatsApp
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Modals -->
+    <?!= include('modals'); ?>
 
-    <!-- Toast Notification -->
     <div id="toast-notification" class="fixed bottom-10 right-10 bg-green-500 text-white py-3 px-6 rounded-lg shadow-xl text-lg opacity-0 translate-y-4 transition-all duration-500 dark:bg-green-700">
         <p id="toast-message"></p>
     </div>
 
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-
-    const appState = {
-        clients: [
-             { id: 1, name: 'Cliente de Ejemplo S.A.S', email: 'ejemplo@correo.com', phone: '3001234567', address: 'Calle Falsa 123' },
-        ],
-        timer: {
-            interval: null,
-            startTime: 0,
-            elapsedTime: 0,
-            isRunning: false,
-            isPaused: false,
-        },
-        activeView: 'dashboard',
-        nextClientId: 2,
-        currentInvoiceData: null, // To store invoice data for email generation
-    };
-
-    const $ = (selector) => document.querySelector(selector);
-    const $$ = (selector) => document.querySelectorAll(selector);
-
-    const elements = {
-        appContainer: $('#app-container'),
-        loginModal: $('#login-modal'),
-        loginButton: $('#login-button'),
-        logoutButton: $('#logout-button'),
-        navItems: $$('.nav-item'),
-        pages: $$('.page'),
-        timerDisplay: $('#timer-display'),
-        clientSelect: $('#client-select'),
-        hourlyRate: $('#hourly-rate'),
-        startPauseButton: $('#start-pause-button'),
-        stopButton: $('#stop-button'),
-        clientsTableBody: $('#clients-table-body'),
-        addClientButton: $('#add-client-button'),
-        clientModal: $('#client-modal'),
-        clientForm: $('#client-form'),
-        cancelClientModal: $('#cancel-client-modal'),
-        clientIdInput: $('#client-id'),
-        clientModalTitle: $('#client-modal-title'),
-        invoiceModal: $('#invoice-modal'),
-        invoiceContent: $('#invoice-content'),
-        sendInvoiceButton: $('#send-invoice-button'),
-        noClientsMessage: $('#no-clients-message'),
-        toast: $('#toast-notification'),
-        toastMessage: $('#toast-message'),
-        generateEmailButton: $('#generate-email-button'),
-        generateEmailSpinner: $('#generate-email-spinner'),
-        emailDraftContainer: $('#email-draft-container'),
-        emailDraftDisplay: $('#email-draft-display'),
-        copyEmailDraftButton: $('#copy-email-draft-button'),
-        darkModeToggle: $('#dark-mode-toggle'),
-        sendWhatsappButton: $('#send-whatsapp-button'),
-    };
-
-    function showToast(message) {
-        elements.toastMessage.textContent = message;
-        elements.toast.classList.remove('opacity-0', 'translate-y-4');
-        setTimeout(() => {
-            elements.toast.classList.add('opacity-0', 'translate-y-4');
-        }, 3000);
-    }
-
-    function renderClients() {
-        elements.clientsTableBody.innerHTML = '';
-        elements.clientSelect.innerHTML = '<option value="">Ningún cliente seleccionado</option>';
-        
-        if (appState.clients.length === 0) {
-            elements.noClientsMessage.classList.remove('hidden');
-            elements.clientsTableBody.classList.add('hidden');
-        } else {
-            elements.noClientsMessage.classList.add('hidden');
-            elements.clientsTableBody.classList.remove('hidden');
-
-            appState.clients.forEach(client => {
-                const tr = document.createElement('tr');
-                tr.className = 'border-b hover:bg-gray-50 dark:hover:bg-zinc-600';
-                tr.innerHTML = `
-                    <td class="p-4 font-medium">${client.name}</td>
-                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.email}</td>
-                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.phone || 'N/A'}</td>
-                    <td class="p-4">
-                        <button class="edit-client-btn text-blue-600 hover:text-blue-800 mr-4" data-id="${client.id}">Editar</button>
-                        <button class="delete-client-btn text-red-600 hover:text-red-800" data-id="${client.id}">Eliminar</button>
-                    </td>
-                `;
-                elements.clientsTableBody.appendChild(tr);
-
-                const option = document.createElement('option');
-                option.value = client.id;
-                option.textContent = client.name;
-                elements.clientSelect.appendChild(option);
-            });
-        }
-    }
-
-    function switchView(viewId) {
-        appState.activeView = viewId;
-        elements.pages.forEach(page => page.classList.add('hidden'));
-        $(`#page-${viewId}`).classList.remove('hidden');
-        elements.navItems.forEach(item => item.classList.remove('active'));
-        $(`a[href="#${viewId}"]`).classList.add('active');
-    }
-
-    function toggleClientModal(show = false, client = null) {
-        if (show) {
-            elements.clientForm.reset();
-            if (client) {
-                elements.clientModalTitle.textContent = 'Editar Cliente';
-                $('#client-id').value = client.id;
-                $('#client-name').value = client.name;
-                $('#client-email').value = client.email;
-                $('#client-phone').value = client.phone;
-                $('#client-address').value = client.address;
-            } else {
-                elements.clientModalTitle.textContent = 'Añadir Nuevo Cliente';
-            }
-            elements.clientModal.classList.remove('hidden');
-            setTimeout(() => {
-                elements.clientModal.querySelector('.modal-content').classList.remove('scale-95');
-                elements.clientModal.classList.remove('opacity-0');
-            }, 10);
-        } else {
-            elements.clientModal.querySelector('.modal-content').classList.add('scale-95');
-            elements.clientModal.classList.add('opacity-0');
-            setTimeout(() => elements.clientModal.classList.add('hidden'), 300);
-        }
-    }
-    
-    function toggleInvoiceModal(show = false, data = null) {
-        if (show && data) {
-            const { client, hours, rate, total } = data;
-            appState.currentInvoiceData = data; // Store current invoice data
-            elements.invoiceContent.innerHTML = `
-                <div class="flex justify-between"><span class="font-semibold">Cliente:</span><span class="dark:text-zinc-200">${client.name}</span></div>
-                <div class="flex justify-between"><span class="font-semibold">Correo:</span><span class="dark:text-zinc-200">${client.email}</span></div>
-                <div class="flex justify-between"><span class="font-semibold">Duración:</span><span class="dark:text-zinc-200">${hours.toFixed(4)} horas</span></div>
-                <div class="flex justify-between"><span class="font-semibold">Tarifa:</span><span class="dark:text-zinc-200">$${rate.toFixed(2)} / hora</span></div>
-                <div class="flex justify-between font-bold text-2xl mt-4 pt-4 border-t border-gray-200 dark:border-zinc-600"><span class="font-semibold">TOTAL:</span><span class="dark:text-zinc-200">$${total.toFixed(2)}</span></div>
-            `;
-            // Reset email draft display
-            elements.emailDraftContainer.classList.add('hidden');
-            elements.emailDraftDisplay.textContent = '';
-            elements.invoiceModal.classList.remove('hidden');
-            setTimeout(() => {
-                elements.invoiceModal.querySelector('.modal-content').classList.remove('scale-95');
-            }, 10);
-        } else {
-            elements.invoiceModal.querySelector('.modal-content').classList.add('scale-95');
-            setTimeout(() => elements.invoiceModal.classList.add('hidden'), 300);
-        }
-    }
-
-    function formatTime(ms) {
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-
-    function updateTimer() {
-        const now = Date.now();
-        const diff = now - appState.timer.startTime + appState.timer.elapsedTime;
-        elements.timerDisplay.textContent = formatTime(diff);
-    }
-    
-    function startTimer() {
-        if (!elements.clientSelect.value) {
-            alert('Por favor, selecciona un cliente.');
-            return;
-        }
-        if (!elements.hourlyRate.value || parseFloat(elements.hourlyRate.value) <= 0) {
-            alert('Por favor, introduce un valor por hora válido.');
-            return;
-        }
-        appState.timer.isRunning = true;
-        appState.timer.isPaused = false;
-        appState.timer.startTime = Date.now();
-        appState.timer.interval = setInterval(updateTimer, 1000);
-        elements.startPauseButton.textContent = 'Pausar';
-        elements.stopButton.classList.remove('hidden');
-        elements.clientSelect.disabled = true;
-        elements.hourlyRate.disabled = true;
-    }
-
-    function pauseTimer() {
-        appState.timer.isPaused = true;
-        appState.timer.isRunning = false;
-        appState.timer.elapsedTime += Date.now() - appState.timer.startTime;
-        clearInterval(appState.timer.interval);
-        elements.startPauseButton.textContent = 'Reanudar';
-    }
-
-    function resumeTimer() {
-        appState.timer.isPaused = false;
-        appState.timer.isRunning = true;
-        appState.timer.startTime = Date.now();
-        appState.timer.interval = setInterval(updateTimer, 1000);
-        elements.startPauseButton.textContent = 'Pausar';
-    }
-
-    function stopTimer() {
-        const finalElapsedTime = appState.timer.elapsedTime + (appState.timer.isRunning ? (Date.now() - appState.timer.startTime) : 0);
-        clearInterval(appState.timer.interval);
-
-        const hours = finalElapsedTime / (1000 * 60 * 60);
-        const rate = parseFloat(elements.hourlyRate.value);
-        const total = hours * rate;
-        const client = appState.clients.find(c => c.id == elements.clientSelect.value);
-
-        toggleInvoiceModal(true, { client, hours, rate, total });
-        
-        // Reset state
-        appState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
-        elements.timerDisplay.textContent = '00:00:00';
-        elements.startPauseButton.textContent = 'Iniciar Sesión';
-        elements.stopButton.classList.add('hidden');
-        elements.clientSelect.disabled = false;
-        elements.hourlyRate.disabled = false;
-        elements.hourlyRate.value = '';
-        elements.clientSelect.value = '';
-    }
-
-    async function generateEmailDraft() {
-        const { client, hours, total } = appState.currentInvoiceData;
-        
-        elements.generateEmailButton.disabled = true;
-        elements.generateEmailSpinner.classList.remove('hidden');
-        elements.emailDraftDisplay.textContent = 'Generando borrador...';
-        elements.emailDraftContainer.classList.remove('hidden');
-
-        const prompt = `Genera un borrador de correo electrónico profesional y amigable para enviar una factura a un cliente. La sesión duró ${hours.toFixed(2)} horas y el total a pagar es $${total.toFixed(2)}. El cliente se llama ${client.name} y su correo es ${client.email}. El correo debe ser conciso, agradecer por la oportunidad y recordar el valor de nuestro servicio. Incluye un saludo y una despedida formales. No incluyas información de contacto más allá del nombre del cliente y el total.`;
-
-        try {
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-            const payload = { contents: chatHistory };
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, {
-                       method: 'POST',
-                       headers: { 'Content-Type': 'application/json' },
-                       body: JSON.stringify(payload)
-                   });
-            const result = await response.json();
-            if (result.candidates && result.candidates.length > 0 &&
-                result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
-              const text = result.candidates[0].content.parts[0].text;
-              elements.emailDraftDisplay.textContent = text;
-            } else {
-              elements.emailDraftDisplay.textContent = 'No se pudo generar el borrador de correo. Inténtalo de nuevo.';
-            }
-        } catch (error) {
-            console.error('Error al llamar a la API de Gemini:', error);
-            elements.emailDraftDisplay.textContent = 'Error al generar el borrador. Por favor, revisa tu conexión.';
-        } finally {
-            elements.generateEmailButton.disabled = false;
-            elements.generateEmailSpinner.classList.add('hidden');
-        }
-    }
-
-    function enableDarkMode() {
-        document.documentElement.classList.add('dark');
-        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Claro ☀️';
-        localStorage.setItem('theme', 'dark');
-    }
-
-    function disableDarkMode() {
-        document.documentElement.classList.remove('dark');
-        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
-        localStorage.setItem('theme', 'light');
-    }
-
-    function toggleDarkMode() {
-        if (document.documentElement.classList.contains('dark')) {
-            disableDarkMode();
-        } else {
-            enableDarkMode();
-        }
-    }
-
-    elements.loginButton.addEventListener('click', () => {
-        elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            elements.loginModal.classList.add('hidden');
-            elements.appContainer.classList.remove('hidden');
-        }, 300);
-    });
-    
-    elements.logoutButton.addEventListener('click', () => {
-        elements.appContainer.classList.add('hidden');
-        elements.loginModal.classList.remove('hidden');
-        elements.loginModal.querySelector('.modal-content').classList.remove('opacity-0');
-        setTimeout(() => elements.loginModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
-    });
-
-    elements.navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const viewId = e.currentTarget.getAttribute('href').substring(1);
-            switchView(viewId);
-        });
-    });
-
-    elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
-    elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
-
-    elements.clientForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const id = parseInt(elements.clientIdInput.value);
-        const clientData = {
-            name: $('#client-name').value,
-            email: $('#client-email').value,
-            phone: $('#client-phone').value,
-            address: $('#client-address').value,
-        };
-
-        if (id) {
-            const index = appState.clients.findIndex(c => c.id === id);
-            appState.clients[index] = { ...clientData, id };
-             showToast('Cliente actualizado con éxito.');
-        } else {
-            clientData.id = appState.nextClientId++;
-            appState.clients.push(clientData);
-             showToast('Cliente añadido con éxito.');
-        }
-
-        renderClients();
-        toggleClientModal(false);
-    });
-    
-    elements.clientsTableBody.addEventListener('click', e => {
-        const target = e.target;
-        if(target.classList.contains('edit-client-btn')) {
-            const id = parseInt(target.dataset.id);
-            const client = appState.clients.find(c => c.id === id);
-            toggleClientModal(true, client);
-        }
-        if(target.classList.contains('delete-client-btn')) {
-            const id = parseInt(target.dataset.id);
-            if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-                 appState.clients = appState.clients.filter(c => c.id !== id);
-                 renderClients();
-                 showToast('Cliente eliminado.');
-            }
-        }
-    });
-    
-    elements.startPauseButton.addEventListener('click', () => {
-        if (appState.timer.isRunning) {
-            pauseTimer();
-        } else if (appState.timer.isPaused) {
-            resumeTimer();
-        } else {
-            startTimer();
-        }
-    });
-
-    elements.stopButton.addEventListener('click', stopTimer);
-    
-    elements.sendInvoiceButton.addEventListener('click', () => {
-        toggleInvoiceModal(false);
-        showToast('Factura enviada por correo (simulación).');
-    });
-
-    elements.generateEmailButton.addEventListener('click', generateEmailDraft);
-    
-    elements.copyEmailDraftButton.addEventListener('click', () => {
-        const emailText = elements.emailDraftDisplay.textContent;
-        document.execCommand('copy'); // Using execCommand for better iframe compatibility
-        showToast('Borrador de correo copiado al portapapeles.');
-    });
-
-    elements.darkModeToggle.addEventListener('click', toggleDarkMode);
-
-    elements.sendWhatsappButton.addEventListener('click', () => {
-        if (!appState.currentInvoiceData) {
-            showToast('Primero debes finalizar una sesión para generar la información de la factura.');
-            return;
-        }
-        const { client, hours, rate, total } = appState.currentInvoiceData;
-        // Prepara el mensaje
-        const mensaje =
-`Hola ${client.name},\n\nTe envío la cuenta de cobro por la sesión realizada.\n\nDuración: ${hours.toFixed(2)} horas\nTarifa: $${rate.toFixed(2)} / hora\nTOTAL: $${total.toFixed(2)}\n\n¡Gracias por tu confianza!`;
-        // Usa el teléfono del cliente si está, si no deja vacío
-        let numero = client.phone ? client.phone.replace(/\D/g, '') : '';
-        // Si el número es colombiano y no tiene el indicativo, agrégalo (ejemplo: 57)
-        if (numero && !numero.startsWith('57')) {
-            numero = '57' + numero;
-        }
-        // Crea el enlace
-        const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
-        // Abre WhatsApp en una nueva pestaña
-        window.open(url, '_blank');
-    });
-
-    function init() {
-        // Initialize theme based on localStorage or system preference
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            enableDarkMode();
-        } else {
-            disableDarkMode();
-        }
-
-        switchView('dashboard');
-        renderClients();
-    }
-
-    init();
-});
-</script>
+    <?!= include('scripts'); ?>
 </body>
 </html>
