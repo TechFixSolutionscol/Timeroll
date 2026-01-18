@@ -1,0 +1,247 @@
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- STATE MANAGEMENT ---
+    const localState = {
+        clients: [],
+        timer: {
+            interval: null, startTime: 0, elapsedTime: 0,
+            isRunning: false, isPaused: false,
+        },
+        activeView: 'dashboard', currentInvoiceData: null,
+    };
+
+    // --- DOM ELEMENT SELECTORS ---
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => document.querySelectorAll(selector);
+    const elements = {
+        appContainer: $('#app-container'), loginModal: $('#login-modal'),
+        loginButton: $('#login-button'), logoutButton: $('#logout-button'),
+        navItems: $$('.nav-item'), pages: $$('.page'), timerDisplay: $('#timer-display'),
+        clientSelect: $('#client-select'), hourlyRate: $('#hourly-rate'),
+        startPauseButton: $('#start-pause-button'), stopButton: $('#stop-button'),
+        clientsTableBody: $('#clients-table-body'), addClientButton: $('#add-client-button'),
+        clientModal: $('#client-modal'), clientForm: $('#client-form'),
+        cancelClientModal: $('#cancel-client-modal'), clientIdInput: $('#client-id'),
+        clientModalTitle: $('#client-modal-title'), invoiceModal: $('#invoice-modal'),
+        invoiceContent: $('#invoice-content'), sendInvoiceButton: $('#send-invoice-button'),
+        noClientsMessage: $('#no-clients-message'), toast: $('#toast-notification'),
+        toastMessage: $('#toast-message'), generateEmailButton: $('#generate-email-button'),
+        generateEmailSpinner: $('#generate-email-spinner'), emailDraftContainer: $('#email-draft-container'),
+        emailDraftDisplay: $('#email-draft-display'), copyEmailDraftButton: $('#copy-email-draft-button'),
+        darkModeToggle: $('#dark-mode-toggle'), sendWhatsappButton: $('#send-whatsapp-button'),
+    };
+
+    // --- UI UTILITY FUNCTIONS ---
+    function showToast(message) {
+        elements.toastMessage.textContent = message;
+        elements.toast.classList.remove('opacity-0', 'translate-y-4');
+        setTimeout(() => { elements.toast.classList.add('opacity-0', 'translate-y-4'); }, 3000);
+    }
+
+    function renderClients(clients) {
+        localState.clients = clients;
+        elements.clientsTableBody.innerHTML = '';
+        elements.clientSelect.innerHTML = '<option value="">Ningún cliente seleccionado</option>';
+        if (!clients || clients.length === 0) {
+            elements.noClientsMessage.classList.remove('hidden');
+        } else {
+            elements.noClientsMessage.classList.add('hidden');
+            clients.forEach(client => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="p-4">${client.Name}</td><td class="p-4">${client.Email}</td><td class="p-4">${client.Phone}</td><td class="p-4"><button class="edit-client-btn text-blue-600 hover:text-blue-800 mr-4" data-id="${client.ID}">Editar</button><button class="delete-client-btn text-red-600 hover:text-red-800" data-id="${client.ID}">Eliminar</button></td>`;
+                elements.clientsTableBody.appendChild(tr);
+                const option = document.createElement('option');
+                option.value = client.ID;
+                option.textContent = client.Name;
+                elements.clientSelect.appendChild(option);
+            });
+        }
+    }
+
+    function switchView(viewId) {
+        elements.pages.forEach(p => p.classList.add('hidden'));
+        $(`#page-${viewId}`).classList.remove('hidden');
+        elements.navItems.forEach(n => n.classList.remove('active'));
+        $(`a[href="#${viewId}"]`).classList.add('active');
+    }
+
+    function toggleClientModal(show = false, client = null) {
+        if (show) {
+            elements.clientForm.reset();
+            if (client) {
+                $('#client-modal-title').textContent = 'Editar Cliente';
+                $('#client-id').value = client.ID;
+                $('#client-name').value = client.Name;
+                $('#client-email').value = client.Email;
+                $('#client-phone').value = client.Phone;
+                $('#client-address').value = client.Address;
+            } else {
+                 $('#client-modal-title').textContent = 'Añadir Nuevo Cliente';
+            }
+            elements.clientModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.clientModal.querySelector('.modal-content').classList.remove('scale-95');
+                elements.clientModal.classList.remove('opacity-0');
+            }, 10);
+        } else {
+            elements.clientModal.querySelector('.modal-content').classList.add('scale-95');
+            elements.clientModal.classList.add('opacity-0');
+            setTimeout(() => elements.clientModal.classList.add('hidden'), 300);
+        }
+    }
+
+    function toggleInvoiceModal(show = false, data = null) {
+        if (show && data) {
+            localState.currentInvoiceData = data;
+            const { client, hours, rate, total } = data;
+            elements.invoiceContent.innerHTML = `
+                <div class="flex justify-between"><span class="font-semibold">Cliente:</span><span>${client.Name}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Correo:</span><span>${client.Email}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Duración:</span><span>${hours.toFixed(4)} horas</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Tarifa:</span><span>$${rate.toFixed(2)} / hora</span></div>
+                <div class="flex justify-between font-bold text-2xl mt-4 pt-4 border-t"><span class="font-semibold">TOTAL:</span><span>$${total.toFixed(2)}</span></div>
+            `;
+            elements.invoiceModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.invoiceModal.querySelector('.modal-content').classList.remove('scale-95');
+            }, 10);
+        } else {
+            elements.invoiceModal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => elements.invoiceModal.classList.add('hidden'), 300);
+        }
+    }
+
+    // --- TIMER LOGIC ---
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+        const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+        const s = String(totalSeconds % 60).padStart(2, '0');
+        return `${h}:${m}:${s}`;
+    }
+
+    function updateTimer() {
+        const diff = Date.now() - localState.timer.startTime + localState.timer.elapsedTime;
+        elements.timerDisplay.textContent = formatTime(diff);
+    }
+
+    function startTimer() {
+        if (!elements.clientSelect.value || !elements.hourlyRate.value) {
+            return showToast('Por favor, selecciona un cliente y una tarifa.');
+        }
+        localState.timer.isRunning = true;
+        localState.timer.isPaused = false;
+        localState.timer.startTime = Date.now();
+        localState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+        elements.stopButton.classList.remove('hidden');
+    }
+
+    function pauseTimer() {
+        localState.timer.isRunning = false;
+        localState.timer.isPaused = true;
+        localState.timer.elapsedTime += Date.now() - localState.timer.startTime;
+        clearInterval(localState.timer.interval);
+        elements.startPauseButton.textContent = 'Reanudar';
+    }
+
+    function resumeTimer() {
+        localState.timer.isRunning = true;
+        localState.timer.isPaused = false;
+        localState.timer.startTime = Date.now();
+        localState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+    }
+
+    function stopTimer() {
+        const finalElapsedTime = localState.timer.elapsedTime + (localState.timer.isRunning ? (Date.now() - localState.timer.startTime) : 0);
+        clearInterval(localState.timer.interval);
+        const hours = finalElapsedTime / 3600000;
+        const rate = parseFloat(elements.hourlyRate.value);
+        const client = localState.clients.find(c => c.ID == elements.clientSelect.value);
+        toggleInvoiceModal(true, { client, hours, rate, total: hours * rate });
+        localState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
+        elements.timerDisplay.textContent = '00:00:00';
+        elements.startPauseButton.textContent = 'Iniciar Sesión';
+        elements.stopButton.classList.add('hidden');
+    }
+
+    // --- DARK MODE ---
+    function enableDarkMode() { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
+    function disableDarkMode() { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
+    function toggleDarkMode() { localStorage.getItem('theme') === 'dark' ? disableDarkMode() : enableDarkMode(); }
+
+    // --- BACKEND COMMUNICATION & EVENT LISTENERS ---
+    function init() {
+        // Init dark mode
+        if (localStorage.getItem('theme') === 'dark') enableDarkMode(); else disableDarkMode();
+        elements.darkModeToggle.addEventListener('click', toggleDarkMode);
+
+        // Init view
+        switchView('dashboard');
+        elements.navItems.forEach(item => item.addEventListener('click', e => {
+            e.preventDefault(); switchView(e.currentTarget.getAttribute('href').substring(1));
+        }));
+
+        // Load clients
+        const onFailure = error => showToast(`Error: ${error.message}`);
+        google.script.run.withFailureHandler(onFailure).withSuccessHandler(renderClients).getClients();
+
+        // Login
+        elements.loginButton.addEventListener('click', () => {
+            elements.loginModal.classList.add('hidden');
+            elements.appContainer.classList.remove('hidden');
+        });
+
+        // Client form
+        elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
+        elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
+        elements.clientForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const clientData = {
+                ID: parseInt($('#client-id').value) || null,
+                name: $('#client-name').value, email: $('#client-email').value,
+                phone: $('#client-phone').value, address: $('#client-address').value
+            };
+            const onSuccess = () => {
+                google.script.run.withSuccessHandler(renderClients).getClients();
+                toggleClientModal(false);
+            };
+            if(clientData.ID) google.script.run.withSuccessHandler(onSuccess).updateClient(clientData);
+            else google.script.run.withSuccessHandler(onSuccess).addClient(clientData);
+        });
+
+        // Client table actions
+        elements.clientsTableBody.addEventListener('click', e => {
+            const id = parseInt(e.target.dataset.id);
+            if (e.target.classList.contains('delete-client-btn')) {
+                google.script.run.withSuccessHandler(() => google.script.run.withSuccessHandler(renderClients).getClients()).deleteClient(id);
+            } else if (e.target.classList.contains('edit-client-btn')) {
+                toggleClientModal(true, localState.clients.find(c => c.ID === id));
+            }
+        });
+
+        // Timer controls
+        elements.startPauseButton.addEventListener('click', () => {
+            if (localState.timer.isRunning) pauseTimer();
+            else if (localState.timer.isPaused) resumeTimer();
+            else startTimer();
+        });
+        elements.stopButton.addEventListener('click', stopTimer);
+
+        // Invoice actions
+        elements.generateEmailButton.addEventListener('click', () => {
+            google.script.run.withSuccessHandler(res => {
+                if(res.draft) elements.emailDraftDisplay.textContent = res.draft;
+            }).generateEmailDraftBackend(localState.currentInvoiceData);
+        });
+        elements.copyEmailDraftButton.addEventListener('click', () => {
+            navigator.clipboard.writeText(elements.emailDraftDisplay.textContent)
+                .then(() => showToast('Copiado!'))
+                .catch(() => showToast('Error al copiar'));
+        });
+    }
+
+    init();
+});
+</script>
