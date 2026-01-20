@@ -5,41 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TimeBill Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chosen Palette: Deep Indigo, Accent Cyan, Neutral Browns/Greys (Light Mode) / Deep Zinc, Lighter Indigo, Accent Cyan (Dark Mode) -->
-    <!-- Application Structure Plan: A task-oriented SPA with sidebar navigation switching between a main 'Dashboard' (for time tracking) and a 'Clients' management view. This structure separates the primary task (tracking) from the secondary setup task (managing clients), making the user flow logical and efficient. Modals are used for focused actions like login, adding/editing clients, and viewing the generated invoice, preventing clutter in the main interface and guiding the user through specific workflows. -->
-    <!-- Visualization & Content Choices: 
-        - Client Management: Goal: Organize. Method: A dynamic HTML table in the 'Clients' section with Add/Edit/Delete buttons. Interaction: A modal form for creating/editing client data, which updates a JS array and re-renders the table. Justification: Standard, intuitive CRUD interface that keeps the main view clean. Library: Vanilla JS + Tailwind.
-        - Time Tracking: Goal: Inform & Control. Method: A large digital display for the timer with clear Start/Pause/Stop controls on the 'Dashboard'. Interaction: Buttons change state and functionality (e.g., Start -> Pause), providing clear visual feedback on the current timer status. Justification: Universally understood controls for a primary user task. Library: Vanilla JS.
-        - Invoicing: Goal: Summarize & Confirm. Method: An auto-appearing modal upon stopping the timer. Interaction: The modal displays a clear calculation of time and cost and requires a final user action ("Send Invoice") to complete the workflow. Additionally, a new feature allows generating an email draft for the invoice using the Gemini API. Justification: Provides immediate, focused confirmation without navigating away, streamlining the final step, and enhances communication with LLM assistance. Library: Vanilla JS + Tailwind + Gemini API.
-        - Dark Mode Toggle: Goal: Customization. Method: A button in the sidebar to switch themes. Interaction: Toggles a 'dark' class on the root HTML element, applying Tailwind's dark mode variants. Justification: Enhances user comfort and personalization. Library: Vanilla JS + Tailwind.
-    -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Orbitron:wght@400;700&display=swap');
-        .timer-font { font-family: 'Orbitron', sans-serif; }
-        .modal-backdrop {
-            transition: opacity 0.3s ease;
-        }
-        .modal-content {
-            transition: transform 0.3s ease;
-        }
-        .nav-item.active {
-            background-color: #4338CA; /* indigo-700 */
-            color: #F7FAFC; /* white */
-        }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #4F46E5; /* indigo-600 */
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+    <?!= include('templates/styles'); ?>
 </head>
 <body class="bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100">
 
@@ -48,7 +14,7 @@
         <!-- Sidebar Navigation -->
         <aside class="w-64 bg-[#E9E7E2] p-6 flex flex-col dark:bg-zinc-800">
             <div class="mb-8 flex justify-center">
-                <img src="assets/images/logo.jpg" alt="TechFix Solutions logo featuring a circular design with stylized cityscape and circuit lines in purple gradient, with the text TECHFIX SOLUTIONS below. The logo conveys a modern, innovative, and professional technology service in a sleek, dark-themed environment." class="h-28 w-auto rounded-2xl shadow-lg bg-white dark:bg-zinc-700 p-2">
+                <img src="https://i.imgur.com/lE0pG48.jpeg" alt="TechFix Solutions logo" class="h-28 w-auto rounded-2xl shadow-lg bg-white dark:bg-zinc-700 p-2">
             </div>
             <h1 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-12">TimeBill Pro de Techfix solutions</h1>
             <nav class="flex flex-col space-y-2">
@@ -60,7 +26,6 @@
                     <span>👥</span>
                     <span>Clientes</span>
                 </a>
-                
             </nav>
             <div class="mt-auto">
                 <p class="text-sm text-gray-500 dark:text-zinc-400">Usuario: Profesional</p>
@@ -76,7 +41,7 @@
             <!-- Dashboard Page -->
             <div id="page-dashboard" class="page">
                 <h2 class="text-3xl font-bold mb-2">Panel de Control</h2>
-                <p class="text-gray-600 dark:text-zinc-300 mb-8"> para comenzar a registrar tu tiempo y generar un cobro para tu cliente.</p>
+                <p class="text-gray-600 dark:text-zinc-300 mb-8">para comenzar a registrar tu tiempo y generar un cobro para tu cliente.</p>
                 
                 <div class="bg-white p-8 rounded-2xl shadow-lg max-w-4xl mx-auto dark:bg-zinc-700">
                     <!-- Timer Display -->
