@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeBill Pro - Iniciar Sesión</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+    </style>
+</head>
+<body class="bg-[#F8F7F4] dark:bg-zinc-900 flex items-center justify-center min-h-screen">
+
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm dark:bg-zinc-700">
+        <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4 text-center">TimeBill Pro</h2>
+        <p class="text-gray-600 dark:text-zinc-300 mb-8 text-center">Inicia sesión para continuar</p>
+
+        <form id="login-form">
+            <div class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Usuario</label>
+                    <input type="text" id="username" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Contraseña</label>
+                    <input type="password" id="password" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <div id="error-message" class="text-red-500 text-sm mt-4 text-center"></div>
+
+            <div class="mt-8">
+                <button type="submit" id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
+                    Ingresar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const button = document.getElementById('login-button');
+            const errorMessage = document.getElementById('error-message');
+
+            button.disabled = true;
+            button.textContent = 'Ingresando...';
+            errorMessage.textContent = '';
+
+            const credentials = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            };
+
+            google.script.run
+                .withSuccessHandler(function(user) {
+                    window.location.reload();
+                })
+                .withFailureHandler(function(error) {
+                    errorMessage.textContent = error.message;
+                    button.disabled = false;
+                    button.textContent = 'Ingresar';
+                })
+                .login(credentials);
+        });
+    </script>
+</body>
+</html>
