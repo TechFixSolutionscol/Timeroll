@@ -1,0 +1,449 @@
+<!-- Archivo `JavaScript.html` -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ==================================================================================
+    // ESTADO DE LA APLICACIÓN (MINIMALISTA)
+    // ==================================================================================
+    const appState = {
+        timer: {
+            interval: null,
+            startTime: 0,
+            elapsedTime: 0,
+            isRunning: false,
+            isPaused: false,
+        },
+        activeView: 'dashboard',
+        currentInvoiceData: null,
+    };
+
+    // ==================================================================================
+    // SELECTORES DEL DOM
+    // ==================================================================================
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => document.querySelectorAll(selector);
+
+    const elements = {
+        appContainer: $('#app-container'),
+        logoutButton: $('#logout-button'),
+        usernameDisplay: $('#username-display'),
+        navItems: $$('.nav-item'),
+        pages: $$('.page'),
+        timerDisplay: $('#timer-display'),
+        clientSelect: $('#client-select'),
+        hourlyRate: $('#hourly-rate'),
+        startPauseButton: $('#start-pause-button'),
+        stopButton: $('#stop-button'),
+        clientsTableBody: $('#clients-table-body'),
+        addClientButton: $('#add-client-button'),
+        clientModal: $('#client-modal'),
+        clientForm: $('#client-form'),
+        cancelClientModal: $('#cancel-client-modal'),
+        clientIdInput: $('#client-id'),
+        clientModalTitle: $('#client-modal-title'),
+        invoiceModal: $('#invoice-modal'),
+        invoiceContent: $('#invoice-content'),
+        closeInvoiceModalButton: $('#close-invoice-modal-button'),
+        noClientsMessage: $('#no-clients-message'),
+        toast: $('#toast-notification'),
+        toastMessage: $('#toast-message'),
+        generateEmailButton: $('#generate-email-button'),
+        generateEmailSpinner: $('#generate-email-spinner'),
+        emailDraftContainer: $('#email-draft-container'),
+        emailDraftDisplay: $('#email-draft-display'),
+        copyEmailDraftButton: $('#copy-email-draft-button'),
+        darkModeToggle: $('#dark-mode-toggle'),
+    };
+
+    // ==================================================================================
+    // FUNCIONES AUXILIARES Y DE RENDERIZADO
+    // ==================================================================================
+
+    /**
+     * @description Muestra una notificación toast con un mensaje.
+     * @param {string} message - El mensaje a mostrar.
+     * @param {boolean} isError - Si es true, el toast será rojo.
+     */
+    function showToast(message, isError = false) {
+        elements.toastMessage.textContent = message;
+        elements.toast.classList.toggle('bg-red-500', isError);
+        elements.toast.classList.toggle('dark:bg-red-700', isError);
+        elements.toast.classList.toggle('bg-green-500', !isError);
+        elements.toast.classList.toggle('dark:bg-green-700', !isError);
+        elements.toast.classList.remove('opacity-0', 'translate-y-4');
+        setTimeout(() => {
+            elements.toast.classList.add('opacity-0', 'translate-y-4');
+        }, 3000);
+    }
+
+    /**
+     * @description Renderiza la lista de clientes en la tabla y en el selector.
+     * @param {Array<Object>} clients - Array de objetos de cliente obtenidos del backend.
+     */
+    function renderClients(clients) {
+        elements.clientsTableBody.innerHTML = '';
+        elements.clientSelect.innerHTML = '<option value="">Ningún cliente seleccionado</option>';
+
+        if (!clients || clients.length === 0) {
+            elements.noClientsMessage.classList.remove('hidden');
+            elements.clientsTableBody.parentElement.classList.add('hidden');
+        } else {
+            elements.noClientsMessage.classList.add('hidden');
+            elements.clientsTableBody.parentElement.classList.remove('hidden');
+
+            clients.forEach(client => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-gray-50 dark:hover:bg-zinc-600';
+                // Usamos `client.ID`, `client.Name`, etc., porque los datos vienen del backend de Apps Script
+                tr.innerHTML = `
+                    <td class="p-4 font-semibold">${client.ID}</td>
+                    <td class="p-4 font-medium">${client.Name}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Email}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Phone || 'N/A'}</td>
+                    <td class="p-4">
+                        <button class="edit-client-btn text-blue-600 hover:text-blue-800 mr-4" data-id="${client.ID}">Editar</button>
+                        <button class="delete-client-btn text-red-600 hover:text-red-800" data-id="${client.ID}">Eliminar</button>
+                    </td>
+                `;
+                elements.clientsTableBody.appendChild(tr);
+
+                const option = document.createElement('option');
+                option.value = client.ID;
+                option.textContent = client.Name;
+                elements.clientSelect.appendChild(option);
+            });
+        }
+    }
+
+    /**
+     * @description Cambia entre las vistas 'dashboard' y 'clients'.
+     * @param {string} viewId - El ID de la vista a mostrar ('dashboard' o 'clients').
+     */
+    function switchView(viewId) {
+        appState.activeView = viewId;
+        elements.pages.forEach(page => page.classList.add('hidden'));
+        $(`#page-${viewId}`).classList.remove('hidden');
+        elements.navItems.forEach(item => item.classList.remove('active'));
+        $(`a[href="#${viewId}"]`).classList.add('active');
+    }
+
+    /**
+     * @description Muestra u oculta el modal de formulario de cliente.
+     * @param {boolean} show - Si es true, muestra el modal.
+     * @param {Object|null} client - Si se provee, llena el formulario para edición.
+     */
+    function toggleClientModal(show = false, client = null) {
+        if (show) {
+            elements.clientForm.reset();
+            if (client) {
+                elements.clientModalTitle.textContent = 'Editar Cliente';
+                $('#client-id').value = client.ID; // Ojo a la mayúscula
+                $('#client-name').value = client.Name;
+                $('#client-email').value = client.Email;
+                $('#client-phone').value = client.Phone;
+                $('#client-address').value = client.Address;
+            } else {
+                elements.clientModalTitle.textContent = 'Añadir Nuevo Cliente';
+            }
+            elements.clientModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.clientModal.querySelector('.modal-content').classList.remove('scale-95');
+                elements.clientModal.classList.remove('opacity-0');
+            }, 10);
+        } else {
+            elements.clientModal.querySelector('.modal-content').classList.add('scale-95');
+            elements.clientModal.classList.add('opacity-0');
+            setTimeout(() => elements.clientModal.classList.add('hidden'), 300);
+        }
+    }
+
+    /**
+     * @description Muestra u oculta el modal de la factura.
+     * @param {boolean} show - Si es true, muestra el modal.
+     * @param {Object|null} data - Datos de la factura para mostrar.
+     */
+    function toggleInvoiceModal(show = false, data = null) {
+        if (show && data) {
+            const { client, hours, rate, total } = data;
+            appState.currentInvoiceData = data;
+            elements.invoiceContent.innerHTML = `
+                <div class="flex justify-between"><span class="font-semibold">Cliente:</span><span class="dark:text-zinc-200">${client.Name}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Correo:</span><span class="dark:text-zinc-200">${client.Email}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Duración:</span><span class="dark:text-zinc-200">${hours.toFixed(4)} horas</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Tarifa:</span><span class="dark:text-zinc-200">$${rate.toFixed(2)} / hora</span></div>
+                <div class="flex justify-between font-bold text-2xl mt-4 pt-4 border-t border-gray-200 dark:border-zinc-600"><span class="font-semibold">TOTAL:</span><span class="dark:text-zinc-200">$${total.toFixed(2)}</span></div>
+            `;
+            elements.emailDraftContainer.classList.add('hidden');
+            elements.emailDraftDisplay.textContent = '';
+            elements.invoiceModal.classList.remove('hidden');
+            setTimeout(() => elements.invoiceModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
+        } else {
+            elements.invoiceModal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => elements.invoiceModal.classList.add('hidden'), 300);
+        }
+    }
+
+    // ==================================================================================
+    // LÓGICA DEL TEMPORIZADOR
+    // ==================================================================================
+
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+        const now = Date.now();
+        const diff = now - appState.timer.startTime + appState.timer.elapsedTime;
+        elements.timerDisplay.textContent = formatTime(diff);
+    }
+
+    function startTimer() {
+        if (!elements.clientSelect.value) {
+            showToast('Por favor, selecciona un cliente.', true);
+            return;
+        }
+        if (!elements.hourlyRate.value || parseFloat(elements.hourlyRate.value) <= 0) {
+            showToast('Por favor, introduce una tarifa por hora válida.', true);
+            return;
+        }
+        appState.timer.isRunning = true;
+        appState.timer.isPaused = false;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+        elements.stopButton.classList.remove('hidden');
+        elements.clientSelect.disabled = true;
+        elements.hourlyRate.disabled = true;
+    }
+
+    function pauseTimer() {
+        appState.timer.isPaused = true;
+        appState.timer.isRunning = false;
+        appState.timer.elapsedTime += Date.now() - appState.timer.startTime;
+        clearInterval(appState.timer.interval);
+        elements.startPauseButton.textContent = 'Reanudar';
+    }
+
+    function resumeTimer() {
+        appState.timer.isPaused = false;
+        appState.timer.isRunning = true;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+    }
+
+    function stopTimer() {
+        const finalElapsedTime = appState.timer.elapsedTime + (appState.timer.isRunning ? (Date.now() - appState.timer.startTime) : 0);
+        clearInterval(appState.timer.interval);
+
+        const hours = finalElapsedTime / (1000 * 60 * 60);
+        const rate = parseFloat(elements.hourlyRate.value);
+        const total = hours * rate;
+
+        google.script.run
+            .withSuccessHandler(client => {
+                toggleInvoiceModal(true, { client, hours, rate, total });
+            })
+            .withFailureHandler(err => showToast(`Error: ${err.message}`, true))
+            .getClients().then(clients => {
+                const foundClient = clients.find(c => c.ID == elements.clientSelect.value);
+                if (foundClient) {
+                    toggleInvoiceModal(true, { client: foundClient, hours, rate, total });
+                } else {
+                    showToast('No se encontró el cliente seleccionado.', true);
+                }
+            });
+
+        // Reset state
+        appState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
+        elements.timerDisplay.textContent = '00:00:00';
+        elements.startPauseButton.textContent = 'Iniciar';
+        elements.stopButton.classList.add('hidden');
+        elements.clientSelect.disabled = false;
+        elements.hourlyRate.disabled = false;
+        elements.hourlyRate.value = '';
+        elements.clientSelect.value = '';
+    }
+
+    // ==================================================================================
+    // LÓGICA DE LA API DE GEMINI
+    // ==================================================================================
+
+    function generateEmailDraft() {
+        elements.generateEmailButton.disabled = true;
+        elements.generateEmailSpinner.classList.remove('hidden');
+        elements.emailDraftDisplay.textContent = 'Generando borrador...';
+        elements.emailDraftContainer.classList.remove('hidden');
+
+        google.script.run
+            .withSuccessHandler(draft => {
+                elements.emailDraftDisplay.textContent = draft;
+                elements.generateEmailButton.disabled = false;
+                elements.generateEmailSpinner.classList.add('hidden');
+            })
+            .withFailureHandler(error => {
+                elements.emailDraftDisplay.textContent = `Error: ${error.message}`;
+                elements.generateEmailButton.disabled = false;
+                elements.generateEmailSpinner.classList.add('hidden');
+            })
+            .generateEmailDraft(appState.currentInvoiceData);
+    }
+
+    // ==================================================================================
+    // MANEJADORES DE EVENTOS
+    // ==================================================================================
+
+    elements.logoutButton.addEventListener('click', () => {
+        google.script.run.withSuccessHandler(() => {
+            window.location.reload();
+        }).logout();
+    });
+
+    elements.navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const viewId = e.currentTarget.getAttribute('href').substring(1);
+            switchView(viewId);
+        });
+    });
+
+    elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
+    elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
+
+    elements.clientForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = parseInt(elements.clientIdInput.value);
+        const clientData = {
+            Name: $('#client-name').value,
+            Email: $('#client-email').value,
+            Phone: $('#client-phone').value,
+            Address: $('#client-address').value,
+        };
+
+        if (id) {
+            clientData.ID = id;
+            google.script.run
+                .withSuccessHandler(() => {
+                    showToast('Cliente actualizado con éxito.');
+                    initializeApp(); // Recargar datos
+                })
+                .withFailureHandler(err => showToast(`Error: ${err.message}`, true))
+                .editClient(clientData);
+        } else {
+            google.script.run
+                .withSuccessHandler(() => {
+                    showToast('Cliente añadido con éxito.');
+                    initializeApp(); // Recargar datos
+                })
+                .withFailureHandler(err => showToast(`Error: ${err.message}`, true))
+                .addClient(clientData);
+        }
+        toggleClientModal(false);
+    });
+
+    elements.clientsTableBody.addEventListener('click', e => {
+        const target = e.target;
+        const clientId = target.dataset.id;
+
+        if (target.classList.contains('edit-client-btn')) {
+            google.script.run
+                .withSuccessHandler(clients => {
+                    const client = clients.find(c => c.ID == clientId);
+                    if (client) toggleClientModal(true, client);
+                })
+                .withFailureHandler(err => showToast(`Error: ${err.message}`, true))
+                .getClients();
+
+        } else if (target.classList.contains('delete-client-btn')) {
+            if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
+                google.script.run
+                    .withSuccessHandler(() => {
+                        showToast('Cliente eliminado.');
+                        initializeApp(); // Recargar datos
+                    })
+                    .withFailureHandler(err => showToast(`Error: ${err.message}`, true))
+                    .deleteClient(clientId);
+            }
+        }
+    });
+
+    elements.startPauseButton.addEventListener('click', () => {
+        if (appState.timer.isRunning) pauseTimer();
+        else if (appState.timer.isPaused) resumeTimer();
+        else startTimer();
+    });
+
+    elements.stopButton.addEventListener('click', stopTimer);
+    elements.closeInvoiceModalButton.addEventListener('click', () => toggleInvoiceModal(false));
+    elements.generateEmailButton.addEventListener('click', generateEmailDraft);
+
+    elements.copyEmailDraftButton.addEventListener('click', () => {
+        navigator.clipboard.writeText(elements.emailDraftDisplay.textContent)
+            .then(() => showToast('Borrador copiado al portapapeles.'))
+            .catch(() => showToast('No se pudo copiar el texto.', true));
+    });
+
+    // ==================================================================================
+    // LÓGICA DE MODO OSCURO
+    // ==================================================================================
+    function enableDarkMode() {
+        document.documentElement.classList.add('dark');
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Claro ☀️';
+        localStorage.setItem('theme', 'dark');
+    }
+
+    function disableDarkMode() {
+        document.documentElement.classList.remove('dark');
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
+        localStorage.setItem('theme', 'light');
+    }
+
+    function toggleDarkMode() {
+        if (document.documentElement.classList.contains('dark')) disableDarkMode();
+        else enableDarkMode();
+    }
+
+    elements.darkModeToggle.addEventListener('click', toggleDarkMode);
+
+    // ==================================================================================
+    // FUNCIÓN DE INICIALIZACIÓN
+    // ==================================================================================
+    function initializeApp() {
+        // Mostrar la app principal
+        elements.appContainer.classList.remove('hidden');
+
+        // Cargar nombre de usuario
+        google.script.run
+            .withSuccessHandler(username => {
+                elements.usernameDisplay.textContent = `Usuario: ${username}`;
+            })
+            .getCurrentUser();
+
+        // Cargar clientes
+        google.script.run
+            .withSuccessHandler(renderClients)
+            .withFailureHandler(err => {
+                showToast(`Error al cargar clientes: ${err.message}`, true);
+                 elements.clientSelect.innerHTML = '<option value="">Error al cargar</option>';
+            })
+            .getClients();
+
+        // Inicializar tema
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            enableDarkMode();
+        } else {
+            disableDarkMode();
+        }
+
+        // Establecer vista inicial
+        switchView('dashboard');
+    }
+
+    initializeApp();
+});
+</script>
