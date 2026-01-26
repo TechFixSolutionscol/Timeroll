@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - TimeBill Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <?!= include('templates/Stylesheet'); ?>
+</head>
+<body class="bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100 flex items-center justify-center min-h-screen">
+
+    <div id="login-modal" class="modal-backdrop flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center transform scale-100 dark:bg-zinc-700">
+            <img src="<?= logoUrl ?>" alt="TechFix Solutions Logo" class="h-24 w-auto rounded-2xl shadow-lg bg-white dark:bg-zinc-700 p-2 mx-auto mb-6">
+            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4">Bienvenido a TimeBill Pro</h2>
+            <p class="text-gray-600 dark:text-zinc-300 mb-8">Inicia sesión para gestionar tu tiempo y facturación.</p>
+
+            <form id="login-form">
+                <div class="space-y-4 text-left">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Usuario</label>
+                        <input type="text" id="username" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Contraseña</label>
+                        <input type="password" id="password" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <button type="submit" id="login-button" class="w-full mt-8 bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 flex items-center justify-center">
+                    <span id="login-spinner" class="spinner hidden mr-2"></span>
+                    Ingresar
+                </button>
+                 <p id="login-error" class="text-red-500 text-sm mt-4 h-4"></p>
+            </form>
+        </div>
+    </div>
+
+<script>
+    const loginForm = document.getElementById('login-form');
+    const loginButton = document.getElementById('login-button');
+    const loginSpinner = document.getElementById('login-spinner');
+    const loginError = document.getElementById('login-error');
+
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        loginButton.disabled = true;
+        loginSpinner.classList.remove('hidden');
+        loginError.textContent = '';
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        google.script.run
+            .withSuccessHandler((result) => {
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    loginError.textContent = result.message || 'Usuario o contraseña incorrectos.';
+                    loginButton.disabled = false;
+                    loginSpinner.classList.add('hidden');
+                }
+            })
+            .withFailureHandler((err) => {
+                loginError.textContent = 'Ocurrió un error. Inténtalo de nuevo.';
+                loginButton.disabled = false;
+                loginSpinner.classList.add('hidden');
+            })
+            .loginUser(username, password);
+    });
+</script>
+</body>
+</html>

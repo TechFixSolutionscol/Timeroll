@@ -1,0 +1,404 @@
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // This will be replaced by server-side calls
+    const appState = {
+        clients: [],
+        timer: {
+            interval: null,
+            startTime: 0,
+            elapsedTime: 0,
+            isRunning: false,
+            isPaused: false,
+        },
+        activeView: 'dashboard',
+        currentInvoiceData: null,
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => document.querySelectorAll(selector);
+
+    const elements = {
+        appContainer: $('#app-container'),
+        userEmailDisplay: $('#user-email-display'),
+        logoutButton: $('#logout-button'),
+        navItems: $$('.nav-item'),
+        pages: $$('.page'),
+        timerDisplay: $('#timer-display'),
+        clientSelect: $('#client-select'),
+        hourlyRate: $('#hourly-rate'),
+        startPauseButton: $('#start-pause-button'),
+        stopButton: $('#stop-button'),
+        clientsTableBody: $('#clients-table-body'),
+        addClientButton: $('#add-client-button'),
+        clientModal: $('#client-modal'),
+        clientForm: $('#client-form'),
+        cancelClientModal: $('#cancel-client-modal'),
+        clientIdInput: $('#client-id'),
+        clientModalTitle: $('#client-modal-title'),
+        invoiceModal: $('#invoice-modal'),
+        invoiceContent: $('#invoice-content'),
+        closeInvoiceModalButton: $('#close-invoice-modal-button'),
+        noClientsMessage: $('#no-clients-message'),
+        toast: $('#toast-notification'),
+        toastMessage: $('#toast-message'),
+        generateEmailButton: $('#generate-email-button'),
+        generateEmailSpinner: $('#generate-email-spinner'),
+        emailDraftContainer: $('#email-draft-container'),
+        emailDraftDisplay: $('#email-draft-display'),
+        copyEmailDraftButton: $('#copy-email-draft-button'),
+        darkModeToggle: $('#dark-mode-toggle'),
+        sendWhatsappButton: $('#send-whatsapp-button'),
+    };
+
+    function showToast(message, isError = false) {
+        elements.toastMessage.textContent = message;
+        elements.toast.classList.remove('bg-green-500', 'dark:bg-green-700', 'bg-red-500', 'dark:bg-red-700');
+        if (isError) {
+            elements.toast.classList.add('bg-red-500', 'dark:bg-red-700');
+        } else {
+            elements.toast.classList.add('bg-green-500', 'dark:bg-green-700');
+        }
+        elements.toast.classList.remove('opacity-0', 'translate-y-4');
+        setTimeout(() => {
+            elements.toast.classList.add('opacity-0', 'translate-y-4');
+        }, 3000);
+    }
+
+    function renderClients(clients) {
+        appState.clients = clients;
+        elements.clientsTableBody.innerHTML = '';
+        elements.clientSelect.innerHTML = '<option value="">Ningún cliente seleccionado</option>';
+
+        if (appState.clients.length === 0) {
+            elements.noClientsMessage.classList.remove('hidden');
+            elements.clientsTableBody.classList.add('hidden');
+        } else {
+            elements.noClientsMessage.classList.add('hidden');
+            elements.clientsTableBody.classList.remove('hidden');
+
+            appState.clients.forEach(client => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-gray-50 dark:hover:bg-zinc-600';
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${client.ID}</td>
+                    <td class="p-4 font-medium">${client.Name}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Email}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Phone || 'N/A'}</td>
+                    <td class="p-4 text-gray-600 dark:text-zinc-300">${client.Address || 'N/A'}</td>
+                    <td class="p-4">
+                        <button class="edit-client-btn text-blue-600 hover:text-blue-800 mr-4" data-id="${client.ID}">Editar</button>
+                        <button class="delete-client-btn text-red-600 hover:text-red-800" data-id="${client.ID}">Eliminar</button>
+                    </td>
+                `;
+                elements.clientsTableBody.appendChild(tr);
+
+                const option = document.createElement('option');
+                option.value = client.ID;
+                option.textContent = client.Name;
+                elements.clientSelect.appendChild(option);
+            });
+        }
+    }
+
+    function switchView(viewId) {
+        appState.activeView = viewId;
+        elements.pages.forEach(page => page.classList.add('hidden'));
+        $(`#page-${viewId}`).classList.remove('hidden');
+        elements.navItems.forEach(item => item.classList.remove('active'));
+        $(`a[href="#${viewId}"]`).classList.add('active');
+    }
+
+    function toggleClientModal(show = false, client = null) {
+        if (show) {
+            elements.clientForm.reset();
+            if (client) {
+                elements.clientModalTitle.textContent = 'Editar Cliente';
+                $('#client-id').value = client.ID;
+                $('#client-name').value = client.Name;
+                $('#client-email').value = client.Email;
+                $('#client-phone').value = client.Phone;
+                $('#client-address').value = client.Address;
+            } else {
+                elements.clientModalTitle.textContent = 'Añadir Nuevo Cliente';
+            }
+            elements.clientModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.clientModal.querySelector('.modal-content').classList.remove('scale-95');
+                elements.clientModal.classList.remove('opacity-0');
+            }, 10);
+        } else {
+            elements.clientModal.querySelector('.modal-content').classList.add('scale-95');
+            elements.clientModal.classList.add('opacity-0');
+            setTimeout(() => elements.clientModal.classList.add('hidden'), 300);
+        }
+    }
+
+    function toggleInvoiceModal(show = false, data = null) {
+        if (show && data) {
+            const { client, hours, rate, total } = data;
+            appState.currentInvoiceData = data;
+            elements.invoiceContent.innerHTML = `
+                <div class="flex justify-between"><span class="font-semibold">Cliente:</span><span class="dark:text-zinc-200">${client.Name}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Correo:</span><span class="dark:text-zinc-200">${client.Email}</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Duración:</span><span class="dark:text-zinc-200">${hours.toFixed(4)} horas</span></div>
+                <div class="flex justify-between"><span class="font-semibold">Tarifa:</span><span class="dark:text-zinc-200">$${rate.toFixed(2)} / hora</span></div>
+                <div class="flex justify-between font-bold text-2xl mt-4 pt-4 border-t border-gray-200 dark:border-zinc-600"><span class="font-semibold">TOTAL:</span><span class="dark:text-zinc-200">$${total.toFixed(2)}</span></div>
+            `;
+            elements.emailDraftContainer.classList.add('hidden');
+            elements.emailDraftDisplay.textContent = '';
+            elements.invoiceModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.invoiceModal.querySelector('.modal-content').classList.remove('scale-95');
+            }, 10);
+        } else {
+            elements.invoiceModal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => elements.invoiceModal.classList.add('hidden'), 300);
+        }
+    }
+
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+        const now = Date.now();
+        const diff = now - appState.timer.startTime + appState.timer.elapsedTime;
+        elements.timerDisplay.textContent = formatTime(diff);
+    }
+
+    function startTimer() {
+        if (!elements.clientSelect.value) {
+            showToast('Por favor, selecciona un cliente.', true);
+            return;
+        }
+        if (!elements.hourlyRate.value || parseFloat(elements.hourlyRate.value) <= 0) {
+            showToast('Por favor, introduce un valor por hora válido.', true);
+            return;
+        }
+        appState.timer.isRunning = true;
+        appState.timer.isPaused = false;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+        elements.stopButton.classList.remove('hidden');
+        elements.clientSelect.disabled = true;
+        elements.hourlyRate.disabled = true;
+    }
+
+    function pauseTimer() {
+        appState.timer.isPaused = true;
+        appState.timer.isRunning = false;
+        appState.timer.elapsedTime += Date.now() - appState.timer.startTime;
+        clearInterval(appState.timer.interval);
+        elements.startPauseButton.textContent = 'Reanudar';
+    }
+
+    function resumeTimer() {
+        appState.timer.isPaused = false;
+        appState.timer.isRunning = true;
+        appState.timer.startTime = Date.now();
+        appState.timer.interval = setInterval(updateTimer, 1000);
+        elements.startPauseButton.textContent = 'Pausar';
+    }
+
+    function stopTimer() {
+        const finalElapsedTime = appState.timer.elapsedTime + (appState.timer.isRunning ? (Date.now() - appState.timer.startTime) : 0);
+        clearInterval(appState.timer.interval);
+
+        const hours = finalElapsedTime / (1000 * 60 * 60);
+        const rate = parseFloat(elements.hourlyRate.value);
+        const total = hours * rate;
+        const client = appState.clients.find(c => c.ID == elements.clientSelect.value);
+
+        toggleInvoiceModal(true, { client, hours, rate, total });
+
+        appState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
+        elements.timerDisplay.textContent = '00:00:00';
+        elements.startPauseButton.textContent = 'Iniciar Sesión';
+        elements.stopButton.classList.add('hidden');
+        elements.clientSelect.disabled = false;
+        elements.hourlyRate.disabled = false;
+        elements.hourlyRate.value = '';
+        elements.clientSelect.value = '';
+    }
+
+    function generateEmailDraftWithApi() {
+        const { client, hours, total } = appState.currentInvoiceData;
+
+        elements.generateEmailButton.disabled = true;
+        elements.generateEmailSpinner.classList.remove('hidden');
+        elements.emailDraftDisplay.textContent = 'Generando borrador...';
+        elements.emailDraftContainer.classList.remove('hidden');
+
+        google.script.run
+            .withSuccessHandler(draft => {
+                elements.emailDraftDisplay.textContent = draft;
+                elements.generateEmailButton.disabled = false;
+                elements.generateEmailSpinner.classList.add('hidden');
+            })
+            .withFailureHandler(err => {
+                showToast(err, true);
+                elements.emailDraftDisplay.textContent = 'Error al generar el borrador.';
+                elements.generateEmailButton.disabled = false;
+                elements.generateEmailSpinner.classList.add('hidden');
+            })
+            .generateEmailDraft(client, hours, total);
+    }
+
+    function enableDarkMode() {
+        document.documentElement.classList.add('dark');
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Claro ☀️';
+        localStorage.setItem('theme', 'dark');
+    }
+
+    function disableDarkMode() {
+        document.documentElement.classList.remove('dark');
+        if (elements.darkModeToggle) elements.darkModeToggle.textContent = 'Modo Oscuro 🌙';
+        localStorage.setItem('theme', 'light');
+    }
+
+    function toggleDarkMode() {
+        if (document.documentElement.classList.contains('dark')) {
+            disableDarkMode();
+        } else {
+            enableDarkMode();
+        }
+    }
+
+    function initializeApp(data) {
+        elements.userEmailDisplay.textContent = `Usuario: ${data.userEmail}`;
+        renderClients(data.clients);
+        switchView('dashboard');
+        elements.appContainer.classList.remove('hidden');
+    }
+
+    function fetchInitialData() {
+        google.script.run
+            .withSuccessHandler(initializeApp)
+            .withFailureHandler(err => {
+                showToast(err.toString(), true);
+            })
+            .getInitialData();
+    }
+
+    elements.logoutButton.addEventListener('click', () => {
+        google.script.run.logout();
+        // Reload the page to trigger the login screen
+        window.location.reload();
+    });
+
+    elements.navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const viewId = e.currentTarget.getAttribute('href').substring(1);
+            switchView(viewId);
+        });
+    });
+
+    elements.addClientButton.addEventListener('click', () => toggleClientModal(true));
+    elements.cancelClientModal.addEventListener('click', () => toggleClientModal(false));
+
+    elements.clientForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const clientData = {
+            ID: document.getElementById('client-id').value,
+            Name: document.getElementById('client-name').value,
+            Email: document.getElementById('client-email').value,
+            Phone: document.getElementById('client-phone').value,
+            Address: document.getElementById('client-address').value,
+        };
+
+        const isUpdating = !!clientData.ID;
+        const apiCall = isUpdating ? 'updateClient' : 'addClient';
+
+        google.script.run
+            .withSuccessHandler(updatedClients => {
+                renderClients(updatedClients);
+                toggleClientModal(false);
+                showToast(`Cliente ${isUpdating ? 'actualizado' : 'añadido'} con éxito.`);
+            })
+            .withFailureHandler(err => {
+                showToast(err.toString(), true);
+            })
+            [apiCall](clientData);
+    });
+
+    elements.clientsTableBody.addEventListener('click', e => {
+        const target = e.target;
+        const clientId = target.dataset.id;
+
+        if(target.classList.contains('edit-client-btn')) {
+            const client = appState.clients.find(c => c.ID == clientId);
+            toggleClientModal(true, client);
+        }
+
+        if(target.classList.contains('delete-client-btn')) {
+            if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
+                 google.script.run
+                    .withSuccessHandler(updatedClients => {
+                        renderClients(updatedClients);
+                        showToast('Cliente eliminado.');
+                    })
+                    .withFailureHandler(err => {
+                        showToast(err.toString(), true);
+                    })
+                    .deleteClient(clientId);
+            }
+        }
+    });
+
+    elements.startPauseButton.addEventListener('click', () => {
+        if (appState.timer.isRunning) pauseTimer();
+        else if (appState.timer.isPaused) resumeTimer();
+        else startTimer();
+    });
+
+    elements.stopButton.addEventListener('click', stopTimer);
+
+    elements.closeInvoiceModalButton.addEventListener('click', () => toggleInvoiceModal(false));
+
+    elements.generateEmailButton.addEventListener('click', generateEmailDraftWithApi);
+
+    elements.copyEmailDraftButton.addEventListener('click', () => {
+        const emailText = elements.emailDraftDisplay.textContent;
+        navigator.clipboard.writeText(emailText).then(() => {
+            showToast('Borrador de correo copiado al portapapeles.');
+        }).catch(err => {
+            showToast('Error al copiar el texto.', true);
+        });
+    });
+
+    elements.darkModeToggle.addEventListener('click', toggleDarkMode);
+
+    elements.sendWhatsappButton.addEventListener('click', () => {
+        if (!appState.currentInvoiceData) {
+            showToast('Primero debes finalizar una sesión para generar la información de la factura.', true);
+            return;
+        }
+        const { client, hours, rate, total } = appState.currentInvoiceData;
+        const mensaje = `Hola ${client.Name},\n\nTe envío la cuenta de cobro por la sesión realizada.\n\nDuración: ${hours.toFixed(2)} horas\nTarifa: $${rate.toFixed(2)} / hora\nTOTAL: $${total.toFixed(2)}\n\n¡Gracias por tu confianza!`;
+        let numero = client.Phone ? String(client.Phone).replace(/\D/g, '') : '';
+        if (numero && !numero.startsWith('57')) {
+            numero = '57' + numero;
+        }
+        const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+        window.open(url, '_blank');
+    });
+
+    function init() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            enableDarkMode();
+        } else {
+            disableDarkMode();
+        }
+        fetchInitialData();
+    }
+
+    init();
+});
+</script>
