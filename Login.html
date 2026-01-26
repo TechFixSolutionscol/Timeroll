@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeBill Pro - Iniciar Sesión</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4F46E5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100 flex items-center justify-center min-h-screen">
+
+    <div id="login-modal" class="w-full max-w-md">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl text-center dark:bg-zinc-700">
+            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4">Bienvenido a TimeBill Pro</h2>
+            <p class="text-gray-600 dark:text-zinc-300 mb-8">Inicia sesión para gestionar tu tiempo y facturación.</p>
+
+            <form id="login-form">
+                <div class="space-y-4 mb-8 text-left">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Usuario</label>
+                        <input type="text" id="username" name="username" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-zinc-200">Contraseña</label>
+                        <input type="password" id="password" name="password" required class="mt-1 w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <button id="login-button" type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 flex items-center justify-center">
+                    <span id="login-spinner" class="spinner hidden mr-3"></span>
+                    <span>Ingresar</span>
+                </button>
+            </form>
+            <p id="error-message" class="text-xs text-red-500 mt-4 h-4"></p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.getElementById('login-form');
+            const loginButton = document.getElementById('login-button');
+            const loginSpinner = document.getElementById('login-spinner');
+            const errorMessage = document.getElementById('error-message');
+
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                errorMessage.textContent = '';
+                loginButton.disabled = true;
+                loginSpinner.classList.remove('hidden');
+
+                const username = e.target.username.value;
+                const password = e.target.password.value;
+
+                google.script.run
+                    .withSuccessHandler(response => {
+                        if (response.success) {
+                            // On success, redirect to the main app. The doGet will handle the session.
+                            window.location.reload();
+                        } else {
+                            errorMessage.textContent = response.error || 'Usuario o contraseña incorrectos.';
+                            loginButton.disabled = false;
+                            loginSpinner.classList.add('hidden');
+                        }
+                    })
+                    .withFailureHandler(error => {
+                        errorMessage.textContent = 'Error de conexión. Inténtalo de nuevo.';
+                        console.error('Login failed:', error);
+                        loginButton.disabled = false;
+                        loginSpinner.classList.add('hidden');
+                    })
+                    .login(username, password);
+            });
+
+            // Auto-detect dark mode
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+</body>
+</html>
