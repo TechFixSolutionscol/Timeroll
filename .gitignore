@@ -23,3 +23,7 @@
 /app/Config/core.php
 /app/Config/database.php
 /vendors/*
+
+node_modules/
+test_view.html
+verify.js
