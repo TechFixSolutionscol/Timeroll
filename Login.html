@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - TimeBill Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <?!= include('templates/Stylesheet'); ?>
+</head>
+<body class="bg-[#F8F7F4] text-[#2D3748] dark:bg-zinc-900 dark:text-zinc-100 flex items-center justify-center min-h-screen">
+
+    <div id="login-modal" class="modal-backdrop flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center transform scale-100 dark:bg-zinc-700">
+            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-4">Bienvenido a TimeBill Pro</h2>
+            <p class="text-gray-600 dark:text-zinc-300 mb-8">Inicia sesión para gestionar tu tiempo y facturación.</p>
+            <div class="space-y-4">
+                 <div>
+                    <label for="username" class="sr-only">Usuario</label>
+                    <input type="text" id="username" placeholder="Usuario" required class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="password" class="sr-only">Contraseña</label>
+                    <input type="password" id="password" placeholder="Contraseña" required class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <button id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 mt-6">
+                Ingresar
+            </button>
+            <p id="login-error" class="text-red-500 mt-4 h-4"></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('login-button').addEventListener('click', () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('login-error');
+
+            errorElement.textContent = 'Iniciando sesión...';
+
+            google.script.run
+                .withSuccessHandler(response => {
+                    if (response.success) {
+                        window.location.href = response.redirectUrl;
+                    } else {
+                        errorElement.textContent = response.error || 'Usuario o contraseña incorrectos.';
+                    }
+                })
+                .withFailureHandler(error => {
+                    errorElement.textContent = 'Error de conexión. Inténtalo de nuevo.';
+                    console.error('Login failed:', error);
+                })
+                .login(username, password);
+        });
+    </script>
+</body>
+</html>
