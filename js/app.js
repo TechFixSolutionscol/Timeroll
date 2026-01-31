@@ -478,10 +478,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.status === 'success') {
                 console.log('✅ Base de datos inicializada:', result.data);
                 elements.initMessage.textContent = `✅ ${result.data.message}`;
-                elements.initStatus.classList.add('bg-green-50');
-                elements.initStatus.classList.remove('bg-blue-50');
+                elements.initStatus.classList.add('bg-green-100');
+                elements.initStatus.classList.remove('bg-blue-50', 'bg-red-50');
                 elements.initMessage.classList.add('text-green-800');
-                elements.initMessage.classList.remove('text-blue-800');
+                elements.initMessage.classList.remove('text-blue-800', 'text-red-800');
                 showToast('✅ Base de datos inicializada correctamente');
 
                 // Recargar clientes
@@ -491,10 +491,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 console.error('❌ Error:', result.message);
                 elements.initMessage.textContent = `❌ Error: ${result.message}`;
-                elements.initStatus.classList.add('bg-red-50');
-                elements.initStatus.classList.remove('bg-blue-50');
+                elements.initStatus.classList.add('bg-red-100');
+                elements.initStatus.classList.remove('bg-blue-50', 'bg-green-100');
                 elements.initMessage.classList.add('text-red-800');
-                elements.initMessage.classList.remove('text-blue-800');
+                elements.initMessage.classList.remove('text-blue-800', 'text-green-800');
                 showToast(`❌ Error: ${result.message}`);
             }
         } catch (error) {
@@ -757,31 +757,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (result.status === 'success') {
                 sessionStorage.setItem('userEmail', result.data.email);
-                sessionStorage.setItem('userName', result.data.nombre);
+                sessionStorage.setItem('userName', result.data.nombre || 'Usuario');
                 sessionStorage.setItem('userId', result.data.id);
-                sessionStorage.setItem('userRole', result.data.role); // Save role
+                sessionStorage.setItem('userRole', result.data.role || 'Usuario'); // Save role
                 localStorage.setItem('lastUser', email); // Recordar último usuario
 
-                checkUserRole(result.data.role);
+                checkUserRole(result.data.role || 'Usuario');
                 if (result.data.role === 'Admin') {
                     loadUsersFromGoogleSheets();
                 }
-
-
 
                 // Animar cierre
                 elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
                 setTimeout(() => {
                     elements.loginModal.classList.add('hidden');
                     elements.appContainer.classList.remove('hidden');
-                    showToast(`✅ ¡Bienvenido, ${result.data.nombre}!`);
+                    showToast(`✅ ¡Bienvenido, ${result.data.nombre || 'Usuario'}!`);
                     checkDatabaseInitialization();
+                    switchView('dashboard');
                 }, 300);
 
                 return true;
             } else {
                 errorDiv.textContent = `❌ ${result.message}`;
                 errorDiv.classList.remove('hidden');
+                showToast(`❌ Error: ${result.message}`);
                 return false;
             }
         } catch (error) {
