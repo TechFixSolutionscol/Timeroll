@@ -6,7 +6,7 @@
  */
 
 // IDs de configuración
-const SPREADSHEET_ID = "tu_id_de_spreadsheet_aqui";
+const SPREADSHEET_ID = "1JAPlVAhKZdmJdCUzy3dIy_a91-F6rjC5U4JTfNHMENg";
 const SHEET_SESIONES = "Sesiones";
 const SHEET_CLIENTES = "Clientes";
 const SHEET_CONFIG = "Configuración";
