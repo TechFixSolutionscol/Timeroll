@@ -719,6 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.appContainer.classList.remove('hidden');
                 showToast(`✅ Bienvenido, ${email}!`);
                 checkDatabaseInitialization();
+                    loadClientsFromGoogleSheets();
             }, 300);
 
         } catch (error) {
@@ -776,6 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     elements.appContainer.classList.remove('hidden');
                     showToast(`✅ ¡Bienvenido, ${result.data.nombre}!`);
                     checkDatabaseInitialization();
+                    loadClientsFromGoogleSheets();
                 }, 300);
 
                 return true;
