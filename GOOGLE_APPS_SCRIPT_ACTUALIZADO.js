@@ -6,7 +6,7 @@
  */
 
 // IDs de configuración
-const SPREADSHEET_ID = "tu_id_de_spreadsheet_aqui";
+const SPREADSHEET_ID = "TU_ID_DE_SPREADSHEET_AQUÍ";
 const SHEET_SESIONES = "Sesiones";
 const SHEET_CLIENTES = "Clientes";
 const SHEET_CONFIG = "Configuración";
@@ -18,6 +18,19 @@ const HEADERS_CLIENTES = ["ID", "Nombre", "Email", "Teléfono", "Dirección", "F
 const HEADERS_CONFIG = ["Parámetro", "Valor", "Tipo", "Descripción"];
 // Se agrega "Rol" a los encabezados de usuarios
 const HEADERS_USUARIOS = ["ID", "Email", "Contraseña (Hash)", "Nombre", "Rol", "Fecha Registro", "Gmail_SenderEmail", "Gmail_AppPassword", "Estado"];
+
+/**
+ * Helper para obtener el spreadsheet activo o por ID
+ */
+function getSpreadsheet() {
+  try {
+    const active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) return active;
+  } catch (e) {
+    console.warn("No active spreadsheet found, trying by ID");
+  }
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
 
 /**
  * ============================================================
@@ -47,10 +60,8 @@ function doPost(e) {
       case 'login':
         return loginUser(payload);
       case 'register':
-        // Registro público (por defecto rol 'Usuario' o 'Admin' si es el primero)
         return registerUser(payload);
       case 'create_user':
-        // Creación administrativa de usuarios (con rol específico)
         return createUserAdmin(payload);
       case 'get_users':
         return getUsersList(payload);
@@ -120,7 +131,7 @@ function registerUser(payload) {
       return errorResponse('Faltan datos requeridos: email, password, nombre');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     let usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     // Crear hoja si no existe e inicializar
@@ -142,7 +153,7 @@ function registerUser(payload) {
     // Si es el primer usuario, lo hacemos Admin. Si no, Usuario estándar.
     const isFirstUser = data.length <= 1;
     const role = isFirstUser ? 'Admin' : 'Usuario';
-    const nextId = usuariosSheet.getLastRow(); // ID simple
+    const nextId = usuariosSheet.getLastRow();
     const fechaRegistro = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
     const passwordHash = hashPassword(payload.password);
 
@@ -151,7 +162,7 @@ function registerUser(payload) {
       payload.email,
       passwordHash,
       payload.nombre,
-      role, // Nueva columna Rol
+      role,
       fechaRegistro,
       '', // Gmail_SenderEmail
       '', // Gmail_AppPassword
@@ -176,14 +187,11 @@ function registerUser(payload) {
  */
 function createUserAdmin(payload) {
   try {
-    // Aquí podrías validar que el usuario que hace la petición sea Admin, 
-    // pero para simplificar asumimos que el frontend lo maneja o se implementa token simple.
-
     if (!payload.email || !payload.password || !payload.nombre || !payload.role) {
       return errorResponse('Faltan datos requeridos');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     const data = usuariosSheet.getDataRange().getValues();
@@ -203,7 +211,7 @@ function createUserAdmin(payload) {
       payload.email,
       passwordHash,
       payload.nombre,
-      payload.role, // Rol enviado explícitamente
+      payload.role,
       fechaRegistro,
       '',
       '',
@@ -224,11 +232,11 @@ function createUserAdmin(payload) {
 }
 
 /**
- * Obtener lista de usuarios (para el panel de administración)
+ * Obtener lista de usuarios
  */
 function getUsersList(payload) {
   try {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     if (!usuariosSheet) return successResponse('No hay usuarios', { users: [] });
@@ -236,10 +244,7 @@ function getUsersList(payload) {
     const data = usuariosSheet.getDataRange().getValues();
     const users = [];
 
-    // Saltamos encabezado
     for (let i = 1; i < data.length; i++) {
-      // Mapeo basado en HEADERS_USUARIOS
-      // ["ID", "Email", "Contraseña", "Nombre", "Rol", "Fecha", "Gmail...", "AppPass...", "Estado"]
       users.push({
         id: data[i][0],
         email: data[i][1],
@@ -263,7 +268,7 @@ function deleteUser(payload) {
   try {
     if (!payload.id) return errorResponse('ID requerido');
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
     const data = usuariosSheet.getDataRange().getValues();
     let rowIndex = -1;
@@ -292,7 +297,7 @@ function loginUser(payload) {
       return errorResponse('Email y contraseña requeridos');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     if (!usuariosSheet) {
@@ -307,9 +312,7 @@ function loginUser(payload) {
       const storedHash = data[i][2];
       const nombre = data[i][3];
       const userId = data[i][0];
-      // Asumimos que la columna Rol es la 5 (índice 4)
       const rol = data[i].length > 4 ? data[i][4] : 'Usuario';
-      // Si la hoja es vieja y no tiene rol, asumimos 'Usuario' o 'Admin'
 
       if (email === payload.email && storedHash === passwordHash) {
         return successResponse('Login exitoso', {
@@ -337,7 +340,7 @@ function saveUserConfig(payload) {
       return errorResponse('Credenciales requeridas');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     if (!usuariosSheet) return errorResponse('Error de base de datos');
@@ -355,8 +358,6 @@ function saveUserConfig(payload) {
 
     if (userRowIndex === -1) return errorResponse('Credenciales inválidas');
 
-    // Índices de Gmail config han cambiado por la columna Rol
-    // Gmail_SenderEmail es col 7 (index 6), Gmail_AppPassword es col 8 (index 7)
     if (payload.gmailSenderEmail) usuariosSheet.getRange(userRowIndex, 7).setValue(payload.gmailSenderEmail);
     if (payload.gmailAppPassword) usuariosSheet.getRange(userRowIndex, 8).setValue(payload.gmailAppPassword);
 
@@ -367,24 +368,12 @@ function saveUserConfig(payload) {
 }
 
 function getUserConfig(payload) {
-  // Similar a saveUserConfig pero retornando valores, ajustado a nuevos índices
-  // Simplificado para brevedad, asumiendo lógica similar a loginUser
-  return errorResponse("Función no implementada en esta actualización para brevedad, use login para obtener config inicial");
+  return errorResponse("Función no implementada");
 }
 
 
-/**
- * ============================================================
- * OTRAS FUNCIONES (MAIL, DB INIT, CLIENTS, SESSIONS)
- * Se mantienen igual que la versión anterior, ajustando InitDB
- * ============================================================
- */
-
 function sendEmailViaSmtp(payload) {
-  // Lógica de envío de correo (sin cambios mayores, solo obtener credenciales del payload o usuario)
-  // ... Implementación similar a la anterior ...
   try {
-    // ... validaciones ...
     if (!payload.to || !payload.subject || !payload.body) return errorResponse('Faltan datos de correo');
 
     let sender = payload.senderEmail || Session.getActiveUser().getEmail();
@@ -400,12 +389,12 @@ function sendEmailViaSmtp(payload) {
 
 function initializeDatabase() {
   try {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const sheets = spreadsheet.getSheets();
     const sheetNames = sheets.map(s => s.getName());
 
     const sheetsToCreate = [
-      { name: SHEET_USUARIOS, headers: HEADERS_USUARIOS }, // Ahora con Rol
+      { name: SHEET_USUARIOS, headers: HEADERS_USUARIOS },
       { name: SHEET_SESIONES, headers: HEADERS_SESIONES },
       { name: SHEET_CLIENTES, headers: HEADERS_CLIENTES },
       { name: SHEET_CONFIG, headers: HEADERS_CONFIG }
@@ -420,15 +409,9 @@ function initializeDatabase() {
         sheet.appendRow(sheetConfig.headers);
         createdSheets.push(sheetConfig.name);
       } else {
-        // Si ya existe, podríamos chequear si faltan columnas (migración simple)
         sheet = spreadsheet.getSheetByName(sheetConfig.name);
-        const currentHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-        // Lógica muy básica para usuarios: si falta columna Rol (indice 4), la insertamos?
-        // Para simplificar, asumimos que el usuario puede borrar la hoja si quiere resetear,
-        // o que la hoja nueva se crea correctamente.
       }
 
-      // Estilo header
       if (sheet) {
         const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
         headerRange.setFontWeight('bold');
@@ -437,11 +420,29 @@ function initializeDatabase() {
       }
     }
 
-    // Config por defecto
+    // Default Config
     const configSheet = spreadsheet.getSheetByName(SHEET_CONFIG);
     if (configSheet && configSheet.getLastRow() <= 1) {
       configSheet.appendRow(['empresa_nombre', 'TimeBill Pro', 'string', 'Nombre de la empresa']);
       configSheet.appendRow(['empresa_email', 'info@techfix.com', 'string', 'Email de contacto']);
+    }
+
+    // Default Admin User
+    const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
+    if (usuariosSheet && usuariosSheet.getLastRow() <= 1) {
+      const defaultAdmin = [
+        1,
+        "admin@techfix.com",
+        hashPassword("admin"),
+        "Administrador",
+        "Admin",
+        Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"),
+        "",
+        "",
+        "activo"
+      ];
+      usuariosSheet.appendRow(defaultAdmin);
+      createdSheets.push("Usuario Admin por defecto");
     }
 
     return successResponse('Base de datos inicializada/verificada', { created: createdSheets });
@@ -450,13 +451,9 @@ function initializeDatabase() {
   }
 }
 
-// ... Funciones de Get/Save Session y Client iguales que antes ...
 function saveSession(payload) {
-  // ... Implementación idéntica ...
-  // Para simplificar el file write, se puede copiar del anterior, 
-  // pero lo esencial es que no cambian en su firma ni dependencia de columnas (hojas separadas)
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_SESIONES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_SESIONES);
     const nextId = sheet.getLastRow();
     sheet.appendRow([
       nextId,
@@ -472,17 +469,15 @@ function saveSession(payload) {
 
 function getSessions() {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_SESIONES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_SESIONES);
     const data = sheet.getDataRange().getValues();
-    // ... Logica de headers a objetos ...
-    // Simplificado:
-    return successResponse('Sesiones', { sessions: [] }); // Placeholder si no se usa mucho en UI
+    return successResponse('Sesiones', { sessions: [] });
   } catch (e) { return errorResponse(e.toString()); }
 }
 
 function addClient(payload) {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const nextId = sheet.getLastRow();
     sheet.appendRow([nextId, payload.name, payload.email, payload.phone, payload.address, new Date(), "Activo"]);
     return successResponse('Cliente creado', { id: nextId, name: payload.name });
@@ -490,9 +485,8 @@ function addClient(payload) {
 }
 
 function updateClient(payload) {
-  // ... Lógica de búsqueda y actualización ...
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] == payload.id) {
@@ -508,9 +502,8 @@ function updateClient(payload) {
 }
 
 function deleteClient(payload) {
-  // ... Lógica de borrado ...
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] == payload.id) {
@@ -524,7 +517,7 @@ function deleteClient(payload) {
 
 function getClients() {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const clients = [];
@@ -543,9 +536,8 @@ function getClients() {
 }
 
 function checkInitialization() {
-  // ...
   try {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const sheets = spreadsheet.getSheets().map(s => s.getName());
     const isInit = sheets.includes(SHEET_USUARIOS) && sheets.includes(SHEET_CLIENTES);
     return successResponse('Check', { initialized: isInit });
