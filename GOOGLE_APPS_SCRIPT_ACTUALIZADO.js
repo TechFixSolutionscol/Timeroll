@@ -472,11 +472,24 @@ function saveSession(payload) {
 
 function getSessions() {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_SESIONES);
+    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = spreadsheet.getSheetByName(SHEET_SESIONES);
+    if (!sheet) return successResponse('No hay sesiones', { sessions: [] });
+
     const data = sheet.getDataRange().getValues();
-    // ... Logica de headers a objetos ...
-    // Simplificado:
-    return successResponse('Sesiones', { sessions: [] }); // Placeholder si no se usa mucho en UI
+    if (data.length <= 1) return successResponse('No hay sesiones', { sessions: [] });
+
+    const headers = data[0];
+    const sessions = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const session = {};
+      for (let j = 0; j < headers.length; j++) {
+        session[headers[j]] = data[i][j];
+      }
+      sessions.push(session);
+    }
+    return successResponse('Sesiones obtenidas', { sessions: sessions });
   } catch (e) { return errorResponse(e.toString()); }
 }
 
