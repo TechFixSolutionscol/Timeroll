@@ -1,6 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Configuración de Google Sheets
+    /**
+     * ⚠️ CONFIGURACIÓN DE GOOGLE SHEETS
+     * Para conectar con tu propia base de datos:
+     * 1. Copia el código de 'GOOGLE_APPS_SCRIPT_ACTUALIZADO.js' en un nuevo Google Apps Script.
+     * 2. Implementa como "Aplicación Web" con acceso para "Cualquiera".
+     * 3. Pega la URL generada aquí abajo:
+     */
     const GOOGLE_SHEETS_CONFIG = {
         appScriptUrl: 'https://script.google.com/macros/s/AKfycbxltspHg_waM1KXGzIlsfvfdbedTIem8eqrIlFb4eBoTovVW2Y2aggrE2R2L29OGQyE/exec'
     };
@@ -66,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeUserModalBtn: $('#close-user-modal-btn'),
         navUsers: $('#nav-users'),
         noUsersMessage: $('#no-users-message'),
+        initDbLoginButton: $('#init-db-login-button'),
 
         // Added missing references if needed, but existing list seems complete for now.
         toast: $('#toast-notification'), // Adding this as it was used in showToast but maybe accessed directly via ID in original code? 
@@ -477,17 +484,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (result.status === 'success') {
                 console.log('✅ Base de datos inicializada:', result.data);
-                elements.initMessage.textContent = `✅ ${result.data.message}`;
-                elements.initStatus.classList.add('bg-green-50');
-                elements.initStatus.classList.remove('bg-blue-50');
-                elements.initMessage.classList.add('text-green-800');
-                elements.initMessage.classList.remove('text-blue-800');
+                if (elements.initMessage) {
+                    elements.initMessage.textContent = `✅ ${result.data.message}`;
+                    elements.initStatus.classList.add('bg-green-50');
+                    elements.initStatus.classList.remove('bg-blue-50');
+                    elements.initMessage.classList.add('text-green-800');
+                    elements.initMessage.classList.remove('text-blue-800');
+                }
                 showToast('✅ Base de datos inicializada correctamente');
 
-                // Recargar clientes
-                setTimeout(() => {
-                    loadClientsFromGoogleSheets();
-                }, 1500);
+                // Recargar clientes si está logueado
+                if (sessionStorage.getItem('userEmail')) {
+                    setTimeout(() => {
+                        loadClientsFromGoogleSheets();
+                    }, 1500);
+                }
             } else {
                 console.error('❌ Error:', result.message);
                 elements.initMessage.textContent = `❌ Error: ${result.message}`;
@@ -911,7 +922,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Event listener para inicializar base de datos
-    elements.initDatabaseButton.addEventListener('click', initializeDatabase);
+    elements.initDatabaseButton.addEventListener('click', () => {
+        if (confirm('¿Estás seguro de que deseas (re)inicializar la base de datos? Esto verificará las tablas y creará el usuario administrador si no existe.')) {
+            initializeDatabase();
+        }
+    });
 
     elements.navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -1049,6 +1064,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lastUser) {
                 elements.loginEmail.value = lastUser;
             }
+        }
+
+        // Event Listener para inicialización desde Login
+        if (elements.initDbLoginButton) {
+            elements.initDbLoginButton.addEventListener('click', initializeDatabase);
         }
 
         // Event Listeners for Users Management
