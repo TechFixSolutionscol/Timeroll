@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initSpinner: $('#init-spinner'),
         initStatus: $('#init-status'),
         initMessage: $('#init-message'),
+        initDbLoginButton: $('#init-db-login-button'),
         // Users Management (New)
         usersTableBody: $('#users-table-body'),
         addUserButton: $('#add-user-button'),
@@ -458,10 +459,11 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function initializeDatabase() {
         try {
-            elements.initDatabaseButton.disabled = true;
-            elements.initSpinner.classList.remove('hidden');
-            elements.initStatus.classList.remove('hidden');
-            elements.initMessage.textContent = '⏳ Inicializando base de datos...';
+            if (elements.initDatabaseButton) elements.initDatabaseButton.disabled = true;
+            if (elements.initDbLoginButton) elements.initDbLoginButton.disabled = true;
+            if (elements.initSpinner) elements.initSpinner.classList.remove('hidden');
+            if (elements.initStatus) elements.initStatus.classList.remove('hidden');
+            if (elements.initMessage) elements.initMessage.textContent = '⏳ Inicializando base de datos...';
 
             const payload = {
                 action: 'initialize'
@@ -477,37 +479,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (result.status === 'success') {
                 console.log('✅ Base de datos inicializada:', result.data);
-                elements.initMessage.textContent = `✅ ${result.data.message}`;
-                elements.initStatus.classList.add('bg-green-50');
-                elements.initStatus.classList.remove('bg-blue-50');
-                elements.initMessage.classList.add('text-green-800');
-                elements.initMessage.classList.remove('text-blue-800');
+                if (elements.initMessage) elements.initMessage.textContent = `✅ ${result.data.message}`;
+                if (elements.initStatus) {
+                    elements.initStatus.classList.add('bg-green-50');
+                    elements.initStatus.classList.remove('bg-blue-50');
+                }
+                if (elements.initMessage) {
+                    elements.initMessage.classList.add('text-green-800');
+                    elements.initMessage.classList.remove('text-blue-800');
+                }
                 showToast('✅ Base de datos inicializada correctamente');
 
-                // Recargar clientes
-                setTimeout(() => {
-                    loadClientsFromGoogleSheets();
-                }, 1500);
+                // Recargar clientes si está logueado
+                if (sessionStorage.getItem('userEmail')) {
+                    setTimeout(() => {
+                        loadClientsFromGoogleSheets();
+                    }, 1500);
+                }
             } else {
                 console.error('❌ Error:', result.message);
-                elements.initMessage.textContent = `❌ Error: ${result.message}`;
-                elements.initStatus.classList.add('bg-red-50');
-                elements.initStatus.classList.remove('bg-blue-50');
-                elements.initMessage.classList.add('text-red-800');
-                elements.initMessage.classList.remove('text-blue-800');
+                if (elements.initMessage) elements.initMessage.textContent = `❌ Error: ${result.message}`;
+                if (elements.initStatus) {
+                    elements.initStatus.classList.add('bg-red-50');
+                    elements.initStatus.classList.remove('bg-blue-50');
+                }
+                if (elements.initMessage) {
+                    elements.initMessage.classList.add('text-red-800');
+                    elements.initMessage.classList.remove('text-blue-800');
+                }
                 showToast(`❌ Error: ${result.message}`);
             }
         } catch (error) {
             console.error('❌ Error de conexión:', error);
-            elements.initMessage.textContent = `❌ Error de conexión: ${error.message}`;
-            elements.initStatus.classList.add('bg-red-50');
-            elements.initStatus.classList.remove('bg-blue-50');
-            elements.initMessage.classList.add('text-red-800');
-            elements.initMessage.classList.remove('text-blue-800');
+            if (elements.initMessage) elements.initMessage.textContent = `❌ Error de conexión: ${error.message}`;
+            if (elements.initStatus) {
+                elements.initStatus.classList.add('bg-red-50');
+                elements.initStatus.classList.remove('bg-blue-50');
+            }
+            if (elements.initMessage) {
+                elements.initMessage.classList.add('text-red-800');
+                elements.initMessage.classList.remove('text-blue-800');
+            }
             showToast('❌ Error de conexión');
         } finally {
-            elements.initDatabaseButton.disabled = false;
-            elements.initSpinner.classList.add('hidden');
+            if (elements.initDatabaseButton) elements.initDatabaseButton.disabled = false;
+            if (elements.initDbLoginButton) elements.initDbLoginButton.disabled = false;
+            if (elements.initSpinner) elements.initSpinner.classList.add('hidden');
         }
     }
 
@@ -911,7 +928,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Event listener para inicializar base de datos
-    elements.initDatabaseButton.addEventListener('click', initializeDatabase);
+    if (elements.initDatabaseButton) {
+        elements.initDatabaseButton.addEventListener('click', initializeDatabase);
+    }
+    if (elements.initDbLoginButton) {
+        elements.initDbLoginButton.addEventListener('click', initializeDatabase);
+    }
 
     elements.navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -1022,6 +1044,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function init() {
+        // Verificar estado de inicialización inmediatamente
+        checkDatabaseInitialization().then(status => {
+            if (status && !status.initialized) {
+                showToast('🚀 La base de datos no está inicializada. Usa el botón "Inicializar" en el login.');
+            }
+        });
+
         // Initialize theme based on localStorage or system preference
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -1032,12 +1061,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Verificar si está logueado (usando sessionStorage)
         const userEmail = sessionStorage.getItem('userEmail');
+        const userRole = sessionStorage.getItem('userRole');
         if (userEmail) {
             // Ya está logueado
             elements.loginModal.classList.add('hidden');
             elements.appContainer.classList.remove('hidden');
             switchAuthForm('login'); // Asegurar que muestra form correcto
             switchView('dashboard');
+            checkUserRole(userRole);
             loadClientsFromGoogleSheets();
         } else {
             // No está logueado - mostrar login
@@ -1088,14 +1119,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Verificar estado de inicialización en background (si está logueado)
-        if (userEmail) {
-            checkDatabaseInitialization().then(status => {
-                if (status && !status.initialized) {
-                    console.warn('⚠️ Base de datos no inicializada. Navegue a Configuración para inicializar.');
-                }
-            });
-        }
     }
 
     init();
