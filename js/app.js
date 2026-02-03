@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loginEmail: $('#login-email'),
         loginPassword: $('#login-password'),
         loginSubmitButton: $('#login-submit-button'),
+        initDbLoginButton: $('#init-db-login-button'),
         loginError: $('#login-error'),
         // Register fields removed
         // App control
@@ -458,7 +459,12 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function initializeDatabase() {
         try {
-            elements.initDatabaseButton.disabled = true;
+            if (elements.initDatabaseButton) elements.initDatabaseButton.disabled = true;
+            if (elements.initDbLoginButton) {
+                elements.initDbLoginButton.disabled = true;
+                elements.initDbLoginButton.textContent = '⏳ Inicializando...';
+            }
+
             elements.initSpinner.classList.remove('hidden');
             elements.initStatus.classList.remove('hidden');
             elements.initMessage.textContent = '⏳ Inicializando base de datos...';
@@ -484,6 +490,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.initMessage.classList.remove('text-blue-800');
                 showToast('✅ Base de datos inicializada correctamente');
 
+                if (elements.initDbLoginButton) {
+                    elements.initDbLoginButton.textContent = '✅ Inicializado';
+                    elements.initDbLoginButton.classList.add('bg-green-600');
+                    setTimeout(() => {
+                        elements.initDbLoginButton.classList.add('hidden');
+                        showToast('ℹ️ Usa admin@techfix.com / admin para entrar');
+                    }, 2000);
+                }
+
                 // Recargar clientes
                 setTimeout(() => {
                     loadClientsFromGoogleSheets();
@@ -496,6 +511,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.initMessage.classList.add('text-red-800');
                 elements.initMessage.classList.remove('text-blue-800');
                 showToast(`❌ Error: ${result.message}`);
+                if (elements.initDbLoginButton) {
+                    elements.initDbLoginButton.disabled = false;
+                    elements.initDbLoginButton.textContent = '🚀 Reintentar Inicialización';
+                }
             }
         } catch (error) {
             console.error('❌ Error de conexión:', error);
@@ -505,8 +524,12 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.initMessage.classList.add('text-red-800');
             elements.initMessage.classList.remove('text-blue-800');
             showToast('❌ Error de conexión');
+            if (elements.initDbLoginButton) {
+                elements.initDbLoginButton.disabled = false;
+                elements.initDbLoginButton.textContent = '🚀 Reintentar Inicialización';
+            }
         } finally {
-            elements.initDatabaseButton.disabled = false;
+            if (elements.initDatabaseButton) elements.initDatabaseButton.disabled = false;
             elements.initSpinner.classList.add('hidden');
         }
     }
@@ -774,6 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     elements.loginModal.classList.add('hidden');
                     elements.appContainer.classList.remove('hidden');
+                    elements.appContainer.classList.add('md:flex');
                     showToast(`✅ ¡Bienvenido, ${result.data.nombre}!`);
                     checkDatabaseInitialization();
                 }, 300);
@@ -903,6 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Mostrar modal
         elements.appContainer.classList.add('hidden');
+        elements.appContainer.classList.remove('md:flex');
         elements.loginModal.classList.remove('hidden');
         elements.loginModal.querySelector('.modal-content').classList.remove('opacity-0');
         setTimeout(() => elements.loginModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
@@ -912,6 +937,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listener para inicializar base de datos
     elements.initDatabaseButton.addEventListener('click', initializeDatabase);
+    if (elements.initDbLoginButton) {
+        elements.initDbLoginButton.addEventListener('click', initializeDatabase);
+    }
 
     elements.navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -1030,12 +1058,23 @@ document.addEventListener('DOMContentLoaded', () => {
             disableDarkMode();
         }
 
+        // Always check initialization
+        checkDatabaseInitialization().then(status => {
+            if (status && !status.initialized) {
+                console.warn('⚠️ Base de datos no inicializada.');
+                if (elements.initDbLoginButton) elements.initDbLoginButton.classList.remove('hidden');
+            } else {
+                if (elements.initDbLoginButton) elements.initDbLoginButton.classList.add('hidden');
+            }
+        });
+
         // Verificar si está logueado (usando sessionStorage)
         const userEmail = sessionStorage.getItem('userEmail');
         if (userEmail) {
             // Ya está logueado
             elements.loginModal.classList.add('hidden');
             elements.appContainer.classList.remove('hidden');
+            elements.appContainer.classList.add('md:flex');
             switchAuthForm('login'); // Asegurar que muestra form correcto
             switchView('dashboard');
             loadClientsFromGoogleSheets();
@@ -1043,6 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // No está logueado - mostrar login
             elements.loginModal.classList.remove('hidden');
             elements.appContainer.classList.add('hidden');
+            elements.appContainer.classList.remove('md:flex');
             switchAuthForm('login');
             // Pre-cargar último usuario si existe
             const lastUser = localStorage.getItem('lastUser');
