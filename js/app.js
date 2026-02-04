@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeUserModalBtn: $('#close-user-modal-btn'),
         navUsers: $('#nav-users'),
         noUsersMessage: $('#no-users-message'),
+        initDbLoginButton: $('#init-db-login-button'),
 
         // Added missing references if needed, but existing list seems complete for now.
         toast: $('#toast-notification'), // Adding this as it was used in showToast but maybe accessed directly via ID in original code? 
@@ -691,42 +692,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function loginUser() {
-        const email = elements.loginEmail.value?.trim();
-        const appPassword = elements.loginPassword.value?.trim();
-        const errorDiv = elements.loginError;
-
-        // Limpiar error anterior
-        errorDiv.classList.add('hidden');
-
-        // Validar campos vacíos
-        if (!email || !appPassword) {
-            errorDiv.textContent = '⚠️ Por favor completa todos los campos.';
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        try {
-
-
-            // Guardar credenciales
-            saveLoginCredentials(email, appPassword);
-
-            // Animar cierre del modal
-            elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                elements.loginModal.classList.add('hidden');
-                elements.appContainer.classList.remove('hidden');
-                showToast(`✅ Bienvenido, ${email}!`);
-                checkDatabaseInitialization();
-            }, 300);
-
-        } catch (error) {
-            console.error('Error de login:', error);
-            errorDiv.textContent = `❌ ${error.message}`;
-            errorDiv.classList.remove('hidden');
-        }
-    }
 
     // Funciones de Login/Registro con Google Sheets
     async function loginUserViaSheets(email, password) {
@@ -803,73 +768,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function registerUserViaSheets(name, email, password, passwordConfirm) {
-        const errorDiv = elements.registerError;
-        errorDiv.classList.add('hidden');
-
-        // Validaciones
-        if (!name || !email || !password || !passwordConfirm) {
-            errorDiv.textContent = '⚠️ Por favor completa todos los campos.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        if (password !== passwordConfirm) {
-            errorDiv.textContent = '⚠️ Las contraseñas no coinciden.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        if (password.length < 8) {
-            errorDiv.textContent = '⚠️ La contraseña debe tener al menos 8 caracteres.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            errorDiv.textContent = '⚠️ Email no válido.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        try {
-            elements.registerSubmitButton.disabled = true;
-            showToast('📝 Creando cuenta...');
-
-            const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
-                method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" }, // Fixed CORS
-                body: JSON.stringify({
-                    action: 'register',
-                    nombre: name,
-                    email: email,
-                    password: password
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showToast('✅ Cuenta creada exitosamente. Inicia sesión.');
-                // Limpiar y cambiar a login
-                elements.registerForm.reset();
-                switchAuthForm('login');
-                return true;
-            } else {
-                errorDiv.textContent = `❌ ${result.message}`;
-                errorDiv.classList.remove('hidden');
-                return false;
-            }
-        } catch (error) {
-            console.error('Error al registrar:', error);
-            errorDiv.textContent = '❌ Error de conexión. Intenta de nuevo.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        } finally {
-            elements.registerSubmitButton.disabled = false;
-        }
-    }
 
     function switchAuthForm(form) {
         // Function simplified as only login exists now
@@ -912,6 +810,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listener para inicializar base de datos
     elements.initDatabaseButton.addEventListener('click', initializeDatabase);
+    if (elements.initDbLoginButton) {
+        elements.initDbLoginButton.addEventListener('click', initializeDatabase);
+    }
 
     elements.navItems.forEach(item => {
         item.addEventListener('click', (e) => {

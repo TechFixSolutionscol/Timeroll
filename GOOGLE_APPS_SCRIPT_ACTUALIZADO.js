@@ -16,8 +16,8 @@ const SHEET_USUARIOS = "Usuarios"; // Hoja para usuarios
 const HEADERS_SESIONES = ["ID", "Fecha", "Hora Inicio", "Hora Fin", "Cliente", "Email Cliente", "Duración (horas)", "Valor/Hora ($)", "Total ($)", "Estado"];
 const HEADERS_CLIENTES = ["ID", "Nombre", "Email", "Teléfono", "Dirección", "Fecha Creación", "Estado"];
 const HEADERS_CONFIG = ["Parámetro", "Valor", "Tipo", "Descripción"];
-// Se agrega "Rol" a los encabezados de usuarios
-const HEADERS_USUARIOS = ["ID", "Email", "Contraseña (Hash)", "Nombre", "Rol", "Fecha Registro", "Gmail_SenderEmail", "Gmail_AppPassword", "Estado"];
+// Se agrega "Salt" a los encabezados de usuarios para mayor seguridad
+const HEADERS_USUARIOS = ["ID", "Email", "Contraseña (Hash)", "Salt", "Nombre", "Rol", "Fecha Registro", "Gmail_SenderEmail", "Gmail_AppPassword", "Estado"];
 
 /**
  * ============================================================
@@ -107,8 +107,19 @@ function doGet(e) {
  * ============================================================
  */
 
-function hashPassword(password) {
-  return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password));
+function hashPassword(password, salt) {
+  const combined = salt + password;
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, combined);
+  return Utilities.base64Encode(digest);
+}
+
+function generateSalt(length = 16) {
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let salt = '';
+  for (let i = 0; i < length; i++) {
+    salt += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return salt;
 }
 
 /**
@@ -144,12 +155,14 @@ function registerUser(payload) {
     const role = isFirstUser ? 'Admin' : 'Usuario';
     const nextId = usuariosSheet.getLastRow(); // ID simple
     const fechaRegistro = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
-    const passwordHash = hashPassword(payload.password);
+    const salt = generateSalt();
+    const passwordHash = hashPassword(payload.password, salt);
 
     const newUser = [
       nextId,
       payload.email,
       passwordHash,
+      salt, // Nueva columna Salt
       payload.nombre,
       role, // Nueva columna Rol
       fechaRegistro,
@@ -196,12 +209,14 @@ function createUserAdmin(payload) {
 
     const nextId = usuariosSheet.getLastRow();
     const fechaRegistro = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
-    const passwordHash = hashPassword(payload.password);
+    const salt = generateSalt();
+    const passwordHash = hashPassword(payload.password, salt);
 
     const newUser = [
       nextId,
       payload.email,
       passwordHash,
+      salt,
       payload.nombre,
       payload.role, // Rol enviado explícitamente
       fechaRegistro,
@@ -239,14 +254,14 @@ function getUsersList(payload) {
     // Saltamos encabezado
     for (let i = 1; i < data.length; i++) {
       // Mapeo basado en HEADERS_USUARIOS
-      // ["ID", "Email", "Contraseña", "Nombre", "Rol", "Fecha", "Gmail...", "AppPass...", "Estado"]
+      // ["ID", "Email", "Hash", "Salt", "Nombre", "Rol", "Fecha", "Gmail...", "AppPass...", "Estado"]
       users.push({
         id: data[i][0],
         email: data[i][1],
-        nombre: data[i][3],
-        role: data[i][4],
-        fecha: data[i][5],
-        estado: data[i][8]
+        nombre: data[i][4],
+        role: data[i][5],
+        fecha: data[i][6],
+        estado: data[i][9]
       });
     }
 
@@ -300,26 +315,26 @@ function loginUser(payload) {
     }
 
     const data = usuariosSheet.getDataRange().getValues();
-    const passwordHash = hashPassword(payload.password);
 
     for (let i = 1; i < data.length; i++) {
       const email = data[i][1];
       const storedHash = data[i][2];
-      const nombre = data[i][3];
+      const salt = data[i][3];
+      const nombre = data[i][4];
       const userId = data[i][0];
-      // Asumimos que la columna Rol es la 5 (índice 4)
-      const rol = data[i].length > 4 ? data[i][4] : 'Usuario';
-      // Si la hoja es vieja y no tiene rol, asumimos 'Usuario' o 'Admin'
+      const rol = data[i][5];
 
-      if (email === payload.email && storedHash === passwordHash) {
+      const loginHash = hashPassword(payload.password, salt);
+
+      if (email === payload.email && storedHash === loginHash) {
         return successResponse('Login exitoso', {
           id: userId,
           email: email,
           nombre: nombre,
           role: rol,
           config: {
-            gmailSenderEmail: data[i][6] || '',
-            gmailAppPassword: data[i][7] || ''
+            gmailSenderEmail: data[i][7] || '',
+            gmailAppPassword: data[i][8] || ''
           }
         });
       }
@@ -343,10 +358,12 @@ function saveUserConfig(payload) {
     if (!usuariosSheet) return errorResponse('Error de base de datos');
 
     const data = usuariosSheet.getDataRange().getValues();
-    const passwordHash = hashPassword(payload.password);
     let userRowIndex = -1;
 
     for (let i = 1; i < data.length; i++) {
+      const salt = data[i][3];
+      const passwordHash = hashPassword(payload.password, salt);
+
       if (data[i][1] === payload.email && data[i][2] === passwordHash) {
         userRowIndex = i + 1;
         break;
@@ -355,10 +372,9 @@ function saveUserConfig(payload) {
 
     if (userRowIndex === -1) return errorResponse('Credenciales inválidas');
 
-    // Índices de Gmail config han cambiado por la columna Rol
-    // Gmail_SenderEmail es col 7 (index 6), Gmail_AppPassword es col 8 (index 7)
-    if (payload.gmailSenderEmail) usuariosSheet.getRange(userRowIndex, 7).setValue(payload.gmailSenderEmail);
-    if (payload.gmailAppPassword) usuariosSheet.getRange(userRowIndex, 8).setValue(payload.gmailAppPassword);
+    // Índices de Gmail config: SenderEmail es col 8 (index 7), AppPassword es col 9 (index 8)
+    if (payload.gmailSenderEmail) usuariosSheet.getRange(userRowIndex, 8).setValue(payload.gmailSenderEmail);
+    if (payload.gmailAppPassword) usuariosSheet.getRange(userRowIndex, 9).setValue(payload.gmailAppPassword);
 
     return successResponse('Configuración guardada');
   } catch (error) {
