@@ -109,7 +109,7 @@
                     <div class="flex justify-center items-center space-x-4">
                         <button id="start-pause-button"
                             class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg text-xl hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-md">Iniciar
-                            Sesión</button>
+                            Seguimiento</button>
                         <button id="stop-button"
                             class="hidden bg-red-600 text-white font-bold py-3 px-8 rounded-lg text-xl hover:bg-red-700 transition-all duration-200 transform hover:scale-105 shadow-md">Detener
                             Sesión</button>
@@ -208,11 +208,17 @@
                         <div id="init-status" class="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-zinc-800 hidden">
                             <p id="init-message" class="text-sm text-blue-800 dark:text-blue-300"></p>
                         </div>
-                        <button id="init-database-button"
-                            class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 shadow-md mb-4">
-                            Inicializar Base de Datos
-                        </button>
-                        <div id="init-spinner" class="spinner hidden ml-4 inline-block"></div>
+                        <div class="flex flex-wrap gap-4">
+                            <button id="init-database-button"
+                                class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 shadow-md">
+                                Inicializar Base de Datos
+                            </button>
+                            <button id="reset-database-button"
+                                class="bg-red-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-red-700 transition-transform transform hover:scale-105 shadow-md">
+                                Reajustar Base de Datos
+                            </button>
+                        </div>
+                        <div id="init-spinner" class="spinner hidden ml-4 inline-block mt-4"></div>
                     </div>
 
                     <!-- Configuration Info Card -->
@@ -332,7 +338,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-2">🔑 Contraseña</label>
                     <input type="password" id="login-password" placeholder="Tu contraseña segura" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        class="w-full p-3 border border-gray-300 dark:border-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                 </div>
 
                 <div id="login-error"
@@ -344,10 +350,54 @@
                     Iniciar Sesión
                 </button>
 
-                <!-- Public registration disabled. Users are created by Admins only. -->
+                <p class="text-center text-sm mt-4">
+                    ¿No tienes cuenta? <a href="#" id="toggle-register" class="text-indigo-600 font-semibold hover:underline">Regístrate</a>
+                </p>
             </form>
 
-            <!-- Register Form Removed -->
+            <!-- Register Form -->
+            <form id="register-form" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-2">👤 Nombre Completo</label>
+                    <input type="text" id="register-name" placeholder="Tu Nombre" required
+                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-2">📧 Email</label>
+                    <input type="email" id="register-email" placeholder="tu_email@gmail.com" required
+                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-2">🔑 Contraseña</label>
+                    <input type="password" id="register-password" placeholder="Mínimo 8 caracteres" required minlength="8"
+                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-2">🔄 Confirmar Contraseña</label>
+                    <input type="password" id="register-password-confirm" placeholder="Repite tu contraseña" required minlength="8"
+                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                </div>
+
+                <div id="register-error"
+                    class="hidden p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg text-sm">
+                </div>
+
+                <button type="submit" id="register-submit-button"
+                    class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-green-700 transition-transform transform hover:scale-105">
+                    Crear Cuenta
+                </button>
+
+                <p class="text-center text-sm mt-4">
+                    ¿Ya tienes cuenta? <a href="#" id="toggle-login" class="text-indigo-600 font-semibold hover:underline">Inicia Sesión</a>
+                </p>
+            </form>
+
+            <div class="mt-8 pt-6 border-t border-gray-200 dark:border-zinc-600 text-center">
+                <p class="text-sm text-gray-600 dark:text-zinc-300 mb-4">¿Es tu primera vez aquí?</p>
+                <button id="quick-init-button" class="text-xs bg-gray-100 dark:bg-zinc-600 hover:bg-gray-200 dark:hover:bg-zinc-500 px-4 py-2 rounded-full transition duration-200">
+                    🚀 Inicializar Base de Datos (Admin)
+                </button>
+            </div>
 
             <p class="text-xs text-gray-400 dark:text-zinc-500 mt-6 text-center">
                 ℹ️ Datos guardados de forma segura en Google Sheets.<br>
@@ -403,54 +453,6 @@
         </div>
     </div>
 
-    <!-- User Modal (New) -->
-    <div id="user-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden opacity-0 transition-opacity duration-300">
-        <div
-            class="modal-content bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-md p-8 transform scale-95 transition-transform duration-300 relative">
-            <button id="cancel-user-modal"
-                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl">&times;</button>
-            <h3 id="user-modal-title" class="text-2xl font-bold text-gray-800 dark:text-zinc-100 mb-6">Nuevo Usuario
-            </h3>
-
-            <form id="user-form" class="space-y-4">
-                <input type="hidden" id="user-id">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Nombre
-                        Completo</label>
-                    <input type="text" id="user-name" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Email</label>
-                    <input type="email" id="user-email" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Rol</label>
-                    <select id="user-role" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <option value="Usuario">Usuario Estándar</option>
-                        <option value="Admin">Administrador</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Contraseña</label>
-                    <input type="password" id="user-password" required minlength="6"
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
-                </div>
-
-                <div class="flex space-x-3 pt-4">
-                    <button type="button" id="close-user-modal-btn"
-                        class="flex-1 py-3 bg-gray-200 dark:bg-zinc-600 text-gray-800 dark:text-zinc-200 rounded-lg hover:bg-gray-300 dark:hover:bg-zinc-500 transition font-semibold">Cancelar</button>
-                    <button type="submit"
-                        class="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow-lg">Guardar
-                        Usuario</button>
-                </div>
-            </form>
-        </div>
-    </div>
     <div id="invoice-modal"
         class="hidden modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center p-4">
         <div
