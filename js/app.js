@@ -54,9 +54,17 @@ document.addEventListener('DOMContentLoaded', () => {
         invoiceContent: $('#invoice-content'),
         sendWhatsappButton: $('#send-whatsapp-button'),
         initDatabaseButton: $('#init-database-button'),
+        resetDatabaseButton: $('#reset-database-button'),
+        quickInitButton: $('#quick-init-button'),
         initSpinner: $('#init-spinner'),
         initStatus: $('#init-status'),
         initMessage: $('#init-message'),
+        // Auth Toggles
+        toggleRegister: $('#toggle-register'),
+        toggleLogin: $('#toggle-login'),
+        registerForm: $('#register-form'),
+        registerError: $('#register-error'),
+        registerSubmitButton: $('#register-submit-button'),
         // Users Management (New)
         usersTableBody: $('#users-table-body'),
         addUserButton: $('#add-user-button'),
@@ -458,10 +466,13 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function initializeDatabase() {
         try {
-            elements.initDatabaseButton.disabled = true;
-            elements.initSpinner.classList.remove('hidden');
-            elements.initStatus.classList.remove('hidden');
-            elements.initMessage.textContent = '⏳ Inicializando base de datos...';
+            if (elements.initDatabaseButton) elements.initDatabaseButton.disabled = true;
+            if (elements.quickInitButton) elements.quickInitButton.disabled = true;
+            if (elements.initSpinner) elements.initSpinner.classList.remove('hidden');
+            if (elements.initStatus) elements.initStatus.classList.remove('hidden');
+            if (elements.initMessage) elements.initMessage.textContent = '⏳ Inicializando base de datos...';
+
+            showToast('⏳ Inicializando base de datos...');
 
             const payload = {
                 action: 'initialize'
@@ -469,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
                 method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" }, // Fixed CORS
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify(payload)
             });
 
@@ -477,37 +488,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (result.status === 'success') {
                 console.log('✅ Base de datos inicializada:', result.data);
-                elements.initMessage.textContent = `✅ ${result.data.message}`;
-                elements.initStatus.classList.add('bg-green-50');
-                elements.initStatus.classList.remove('bg-blue-50');
-                elements.initMessage.classList.add('text-green-800');
-                elements.initMessage.classList.remove('text-blue-800');
+                if (elements.initMessage) elements.initMessage.textContent = `✅ ${result.message}`;
+                if (elements.initStatus) {
+                    elements.initStatus.classList.add('bg-green-50');
+                    elements.initStatus.classList.remove('bg-blue-50');
+                }
                 showToast('✅ Base de datos inicializada correctamente');
 
-                // Recargar clientes
+                // Si estamos en login, sugerir usar admin/admin
+                if (elements.loginModal.classList.contains('hidden') === false) {
+                    showToast('👉 Usa admin@techfix.com / admin');
+                }
+
+                // Recargar datos
                 setTimeout(() => {
                     loadClientsFromGoogleSheets();
+                    if (sessionStorage.getItem('userRole') === 'Admin') loadUsersFromGoogleSheets();
                 }, 1500);
             } else {
                 console.error('❌ Error:', result.message);
-                elements.initMessage.textContent = `❌ Error: ${result.message}`;
-                elements.initStatus.classList.add('bg-red-50');
-                elements.initStatus.classList.remove('bg-blue-50');
-                elements.initMessage.classList.add('text-red-800');
-                elements.initMessage.classList.remove('text-blue-800');
+                if (elements.initMessage) elements.initMessage.textContent = `❌ Error: ${result.message}`;
                 showToast(`❌ Error: ${result.message}`);
             }
         } catch (error) {
             console.error('❌ Error de conexión:', error);
-            elements.initMessage.textContent = `❌ Error de conexión: ${error.message}`;
-            elements.initStatus.classList.add('bg-red-50');
-            elements.initStatus.classList.remove('bg-blue-50');
-            elements.initMessage.classList.add('text-red-800');
-            elements.initMessage.classList.remove('text-blue-800');
+            if (elements.initMessage) elements.initMessage.textContent = `❌ Error de conexión: ${error.message}`;
             showToast('❌ Error de conexión');
         } finally {
-            elements.initDatabaseButton.disabled = false;
-            elements.initSpinner.classList.add('hidden');
+            if (elements.initDatabaseButton) elements.initDatabaseButton.disabled = false;
+            if (elements.quickInitButton) elements.quickInitButton.disabled = false;
+            if (elements.initSpinner) elements.initSpinner.classList.add('hidden');
         }
     }
 
@@ -767,8 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadUsersFromGoogleSheets();
                 }
 
-
-
                 // Animar cierre
                 elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
                 setTimeout(() => {
@@ -782,6 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 errorDiv.textContent = `❌ ${result.message}`;
                 errorDiv.classList.remove('hidden');
+                showToast(`❌ Error: ${result.message}`);
                 return false;
             }
         } catch (error) {
@@ -859,6 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 errorDiv.textContent = `❌ ${result.message}`;
                 errorDiv.classList.remove('hidden');
+                showToast(`❌ Error: ${result.message}`);
                 return false;
             }
         } catch (error) {
@@ -872,9 +882,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchAuthForm(form) {
-        // Function simplified as only login exists now
-        elements.loginForm.classList.remove('hidden');
+        if (form === 'register') {
+            elements.loginForm.classList.add('hidden');
+            elements.registerForm.classList.remove('hidden');
+        } else {
+            elements.loginForm.classList.remove('hidden');
+            elements.registerForm.classList.add('hidden');
+        }
         elements.loginError.classList.add('hidden');
+        elements.registerError.classList.add('hidden');
     }
 
     // Event listeners para formularios
@@ -885,7 +901,42 @@ document.addEventListener('DOMContentLoaded', () => {
         loginUserViaSheets(email, password);
     });
 
-    // Register event listeners removed
+    if (elements.registerForm) {
+        elements.registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = $('#register-name').value?.trim();
+            const email = $('#register-email').value?.trim();
+            const password = $('#register-password').value?.trim();
+            const passwordConfirm = $('#register-password-confirm').value?.trim();
+            registerUserViaSheets(name, email, password, passwordConfirm);
+        });
+    }
+
+    if (elements.toggleRegister) {
+        elements.toggleRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchAuthForm('register');
+        });
+    }
+
+    if (elements.toggleLogin) {
+        elements.toggleLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchAuthForm('login');
+        });
+    }
+
+    if (elements.quickInitButton) {
+        elements.quickInitButton.addEventListener('click', initializeDatabase);
+    }
+
+    if (elements.resetDatabaseButton) {
+        elements.resetDatabaseButton.addEventListener('click', () => {
+            if (confirm('⚠️ ¿ESTÁS SEGURO? Esto verificará y recreará las tablas si faltan, y asegurará que el usuario admin exista. No borrará datos existentes a menos que las hojas sean eliminadas manualmente.')) {
+                initializeDatabase();
+            }
+        });
+    }
 
     elements.logoutButton.addEventListener('click', () => {
         // Limpiar sesión
