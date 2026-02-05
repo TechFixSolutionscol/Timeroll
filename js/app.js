@@ -66,14 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeUserModalBtn: $('#close-user-modal-btn'),
         navUsers: $('#nav-users'),
         noUsersMessage: $('#no-users-message'),
-
-        // Added missing references if needed, but existing list seems complete for now.
-        toast: $('#toast-notification'), // Adding this as it was used in showToast but maybe accessed directly via ID in original code? 
-        // Original code used elements.toastMessage and elements.toast. 
-        // Let's check original showToast function.
-        // It used elements.toastMessage and elements.toast. But these were not in the 'elements' object definition I saw above?
-        // Ah, looking at lines 496+, showToast uses elements.toastMessage and elements.toast.
-        // I need to add them to elements object.
+        toast: $('#toast-notification'),
         toastMessage: $('#toast-message'),
     };
 
