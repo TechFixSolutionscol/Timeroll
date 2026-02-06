@@ -3,9 +3,19 @@
  * GOOGLE APPS SCRIPT - TimeBill Pro v2.1
  * Maneja sesiones, clientes y gestión de usuarios con roles
  * ============================================================
+ *
+ * ⚙️ CONFIGURACIÓN:
+ * 1. Crea una nueva Hoja de Cálculo en Google Sheets.
+ * 2. Copia el ID de la URL (el texto largo entre /d/ y /edit).
+ * 3. Pega ese ID en la constante SPREADSHEET_ID abajo.
+ * 4. Ve a Extensiones -> Apps Script y pega todo este código.
+ * 5. Haz clic en "Implementar" -> "Nueva implementación".
+ * 6. Selecciona "Servicio web", ejecuta como "Yo" y acceso "Cualquiera".
+ * 7. Copia la URL de la implementación y pégala en js/app.js.
  */
 
 // IDs de configuración
+// REEMPLAZA "tu_id_de_spreadsheet_aqui" con el ID real de tu Google Sheet
 const SPREADSHEET_ID = "tu_id_de_spreadsheet_aqui";
 const SHEET_SESIONES = "Sesiones";
 const SHEET_CLIENTES = "Clientes";
