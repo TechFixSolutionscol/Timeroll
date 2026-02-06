@@ -20,6 +20,21 @@ const HEADERS_CONFIG = ["Parámetro", "Valor", "Tipo", "Descripción"];
 const HEADERS_USUARIOS = ["ID", "Email", "Contraseña (Hash)", "Nombre", "Rol", "Fecha Registro", "Gmail_SenderEmail", "Gmail_AppPassword", "Estado"];
 
 /**
+ * Obtiene la instancia del Spreadsheet, con fallback al activo si el ID es placeholder.
+ */
+function getSpreadsheet() {
+  if (SPREADSHEET_ID === "tu_id_de_spreadsheet_aqui" || !SPREADSHEET_ID) {
+    return SpreadsheetApp.getActiveSpreadsheet();
+  }
+  try {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  } catch (e) {
+    console.error("Error opening spreadsheet by ID, falling back to active:", e);
+    return SpreadsheetApp.getActiveSpreadsheet();
+  }
+}
+
+/**
  * ============================================================
  * FUNCIONES PRINCIPALES (POST/GET)
  * ============================================================
@@ -120,7 +135,7 @@ function registerUser(payload) {
       return errorResponse('Faltan datos requeridos: email, password, nombre');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     let usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     // Crear hoja si no existe e inicializar
@@ -183,7 +198,7 @@ function createUserAdmin(payload) {
       return errorResponse('Faltan datos requeridos');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     const data = usuariosSheet.getDataRange().getValues();
@@ -228,7 +243,7 @@ function createUserAdmin(payload) {
  */
 function getUsersList(payload) {
   try {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     if (!usuariosSheet) return successResponse('No hay usuarios', { users: [] });
@@ -263,7 +278,7 @@ function deleteUser(payload) {
   try {
     if (!payload.id) return errorResponse('ID requerido');
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
     const data = usuariosSheet.getDataRange().getValues();
     let rowIndex = -1;
@@ -292,7 +307,7 @@ function loginUser(payload) {
       return errorResponse('Email y contraseña requeridos');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     if (!usuariosSheet) {
@@ -337,7 +352,7 @@ function saveUserConfig(payload) {
       return errorResponse('Credenciales requeridas');
     }
 
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const usuariosSheet = spreadsheet.getSheetByName(SHEET_USUARIOS);
 
     if (!usuariosSheet) return errorResponse('Error de base de datos');
@@ -400,7 +415,7 @@ function sendEmailViaSmtp(payload) {
 
 function initializeDatabase() {
   try {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const sheets = spreadsheet.getSheets();
     const sheetNames = sheets.map(s => s.getName());
 
@@ -456,7 +471,7 @@ function saveSession(payload) {
   // Para simplificar el file write, se puede copiar del anterior, 
   // pero lo esencial es que no cambian en su firma ni dependencia de columnas (hojas separadas)
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_SESIONES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_SESIONES);
     const nextId = sheet.getLastRow();
     sheet.appendRow([
       nextId,
@@ -472,7 +487,7 @@ function saveSession(payload) {
 
 function getSessions() {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_SESIONES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_SESIONES);
     const data = sheet.getDataRange().getValues();
     // ... Logica de headers a objetos ...
     // Simplificado:
@@ -482,7 +497,7 @@ function getSessions() {
 
 function addClient(payload) {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const nextId = sheet.getLastRow();
     sheet.appendRow([nextId, payload.name, payload.email, payload.phone, payload.address, new Date(), "Activo"]);
     return successResponse('Cliente creado', { id: nextId, name: payload.name });
@@ -492,7 +507,7 @@ function addClient(payload) {
 function updateClient(payload) {
   // ... Lógica de búsqueda y actualización ...
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] == payload.id) {
@@ -510,7 +525,7 @@ function updateClient(payload) {
 function deleteClient(payload) {
   // ... Lógica de borrado ...
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] == payload.id) {
@@ -524,7 +539,7 @@ function deleteClient(payload) {
 
 function getClients() {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
+    const sheet = getSpreadsheet().getSheetByName(SHEET_CLIENTES);
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const clients = [];
@@ -545,7 +560,7 @@ function getClients() {
 function checkInitialization() {
   // ...
   try {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = getSpreadsheet();
     const sheets = spreadsheet.getSheets().map(s => s.getName());
     const isInit = sheets.includes(SHEET_USUARIOS) && sheets.includes(SHEET_CLIENTES);
     return successResponse('Check', { initialized: isInit });
