@@ -675,58 +675,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    function saveLoginCredentials(email, appPassword) {
-        // Guardar credenciales de forma segura en localStorage
-        localStorage.setItem('userEmail', email);
-        // NOTA: NO guardamos la contraseña sin encriptar. La app solicitará que la ingrese cada vez.
-        // O si deseas guardarla, usa una encriptación simple (base64 es solo para demo):
-        localStorage.setItem('userAppPassword', btoa(appPassword)); // Base64 (solo para demo, no es criptografía real)
-        localStorage.setItem('isLoggedIn', 'true');
-    }
-
-    function loadLoginCredentials() {
-        const email = localStorage.getItem('userEmail');
-        if (email) {
-            elements.loginEmail.value = email;
-        }
-    }
-
-    function loginUser() {
-        const email = elements.loginEmail.value?.trim();
-        const appPassword = elements.loginPassword.value?.trim();
-        const errorDiv = elements.loginError;
-
-        // Limpiar error anterior
-        errorDiv.classList.add('hidden');
-
-        // Validar campos vacíos
-        if (!email || !appPassword) {
-            errorDiv.textContent = '⚠️ Por favor completa todos los campos.';
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        try {
-
-
-            // Guardar credenciales
-            saveLoginCredentials(email, appPassword);
-
-            // Animar cierre del modal
-            elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                elements.loginModal.classList.add('hidden');
-                elements.appContainer.classList.remove('hidden');
-                showToast(`✅ Bienvenido, ${email}!`);
-                checkDatabaseInitialization();
-            }, 300);
-
-        } catch (error) {
-            console.error('Error de login:', error);
-            errorDiv.textContent = `❌ ${error.message}`;
-            errorDiv.classList.remove('hidden');
-        }
-    }
 
     // Funciones de Login/Registro con Google Sheets
     async function loginUserViaSheets(email, password) {
@@ -774,6 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     elements.loginModal.classList.add('hidden');
                     elements.appContainer.classList.remove('hidden');
+                    elements.appContainer.classList.add('md:flex'); // Restore responsive layout
                     showToast(`✅ ¡Bienvenido, ${result.data.nombre}!`);
                     checkDatabaseInitialization();
                 }, 300);
@@ -903,6 +852,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Mostrar modal
         elements.appContainer.classList.add('hidden');
+        elements.appContainer.classList.remove('md:flex'); // Hide responsive layout
         elements.loginModal.classList.remove('hidden');
         elements.loginModal.querySelector('.modal-content').classList.remove('opacity-0');
         setTimeout(() => elements.loginModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
@@ -1036,6 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ya está logueado
             elements.loginModal.classList.add('hidden');
             elements.appContainer.classList.remove('hidden');
+            elements.appContainer.classList.add('md:flex');
             switchAuthForm('login'); // Asegurar que muestra form correcto
             switchView('dashboard');
             loadClientsFromGoogleSheets();
