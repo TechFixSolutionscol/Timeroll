@@ -26,12 +26,25 @@ document.addEventListener('DOMContentLoaded', () => {
         appContainer: $('#app-container'),
         loginModal: $('#login-modal'),
         // Login fields
+        loginFormContainer: $('#login-form-container'),
         loginForm: $('#login-form'),
         loginEmail: $('#login-email'),
         loginPassword: $('#login-password'),
         loginSubmitButton: $('#login-submit-button'),
         loginError: $('#login-error'),
-        // Register fields removed
+        // Register fields
+        registerFormContainer: $('#register-form-container'),
+        registerForm: $('#register-form'),
+        registerName: $('#register-name'),
+        registerEmail: $('#register-email'),
+        registerPassword: $('#register-password'),
+        registerPasswordConfirm: $('#register-password-confirm'),
+        registerSubmitButton: $('#register-submit-button'),
+        registerError: $('#register-error'),
+        // Toggles
+        toggleToRegister: $('#toggle-to-register'),
+        toggleToLogin: $('#toggle-to-login'),
+        quickInitButton: $('#quick-init-button'),
         // App control
         darkModeToggle: $('#dark-mode-toggle'),
         logoutButton: $('#logout-button'),
@@ -205,6 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     role: userData.role
                 })
             });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const result = await response.json();
 
@@ -381,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset state
         appState.timer = { interval: null, startTime: 0, elapsedTime: 0, isRunning: false, isPaused: false };
         elements.timerDisplay.textContent = '00:00:00';
-        elements.startPauseButton.textContent = 'Iniciar Sesión';
+        elements.startPauseButton.textContent = 'Iniciar Seguimiento';
         elements.stopButton.classList.add('hidden');
         elements.clientSelect.disabled = false;
         elements.hourlyRate.disabled = false;
@@ -767,27 +782,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadUsersFromGoogleSheets();
                 }
 
-
-
                 // Animar cierre
                 elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
                 setTimeout(() => {
                     elements.loginModal.classList.add('hidden');
                     elements.appContainer.classList.remove('hidden');
+                    elements.appContainer.classList.add('md:flex'); // Restore desktop layout
                     showToast(`✅ ¡Bienvenido, ${result.data.nombre}!`);
                     checkDatabaseInitialization();
+                    loadClientsFromGoogleSheets();
+                    switchView('dashboard');
                 }, 300);
 
                 return true;
             } else {
                 errorDiv.textContent = `❌ ${result.message}`;
                 errorDiv.classList.remove('hidden');
+                showToast(`❌ Error: ${result.message}`);
                 return false;
             }
         } catch (error) {
             console.error('Error al hacer login:', error);
             errorDiv.textContent = '❌ Error de conexión. Intenta de nuevo.';
             errorDiv.classList.remove('hidden');
+            showToast('❌ Error de conexión con el servidor');
             return false;
         } finally {
             elements.loginSubmitButton.disabled = false;
@@ -848,6 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const result = await response.json();
 
             if (result.status === 'success') {
@@ -859,12 +878,14 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 errorDiv.textContent = `❌ ${result.message}`;
                 errorDiv.classList.remove('hidden');
+                showToast(`❌ Error: ${result.message}`);
                 return false;
             }
         } catch (error) {
             console.error('Error al registrar:', error);
             errorDiv.textContent = '❌ Error de conexión. Intenta de nuevo.';
             errorDiv.classList.remove('hidden');
+            showToast('❌ Error de conexión');
             return false;
         } finally {
             elements.registerSubmitButton.disabled = false;
@@ -872,9 +893,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchAuthForm(form) {
-        // Function simplified as only login exists now
-        elements.loginForm.classList.remove('hidden');
-        elements.loginError.classList.add('hidden');
+        if (form === 'login') {
+            elements.loginFormContainer.classList.remove('hidden');
+            elements.registerFormContainer.classList.add('hidden');
+        } else {
+            elements.loginFormContainer.classList.add('hidden');
+            elements.registerFormContainer.classList.remove('hidden');
+        }
     }
 
     // Event listeners para formularios
@@ -885,7 +910,31 @@ document.addEventListener('DOMContentLoaded', () => {
         loginUserViaSheets(email, password);
     });
 
-    // Register event listeners removed
+    elements.registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = elements.registerName.value?.trim();
+        const email = elements.registerEmail.value?.trim();
+        const password = elements.registerPassword.value?.trim();
+        const passwordConfirm = elements.registerPasswordConfirm.value?.trim();
+        registerUserViaSheets(name, email, password, passwordConfirm);
+    });
+
+    elements.toggleToRegister.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchAuthForm('register');
+    });
+
+    elements.toggleToLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchAuthForm('login');
+    });
+
+    elements.quickInitButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (confirm('Esto creará las tablas necesarias en tu Google Sheets. ¿Continuar?')) {
+            initializeDatabase();
+        }
+    });
 
     elements.logoutButton.addEventListener('click', () => {
         // Limpiar sesión
@@ -894,6 +943,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Limpiar formularios
         elements.loginForm.reset();
         elements.loginError.classList.add('hidden');
+        elements.registerForm.reset();
+        elements.registerError.classList.add('hidden');
 
         // Ocultar menú admin si estaba visible
         elements.navUsers.classList.add('hidden');
@@ -903,6 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Mostrar modal
         elements.appContainer.classList.add('hidden');
+        elements.appContainer.classList.remove('md:flex');
         elements.loginModal.classList.remove('hidden');
         elements.loginModal.querySelector('.modal-content').classList.remove('opacity-0');
         setTimeout(() => elements.loginModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
