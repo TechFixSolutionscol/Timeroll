@@ -47,6 +47,16 @@
                     <span>👥</span>
                     <span>Clientes</span>
                 </a>
+                <a href="#reporte"
+                    class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
+                    <span>🕐</span>
+                    <span>Reporte de Horas</span>
+                </a>
+                <a href="#contratos"
+                    class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
+                    <span>📄</span>
+                    <span>Contratos</span>
+                </a>
                 <a href="#users" id="nav-users"
                     class="nav-item hidden text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
                     <span>🛡️</span>
@@ -187,6 +197,212 @@
                     <div id="no-users-message" class="hidden p-8 text-center text-gray-500 dark:text-zinc-400">
                         No hay usuarios registrados.
                     </div>
+                </div>
+            </div>
+
+            <!-- Reporte de Horas Page -->
+            <div id="page-reporte" class="page hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold">Reporte de Horas</h2>
+                        <p class="text-gray-600 dark:text-zinc-300">Registra servicios manualmente por empresa y fecha.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Formulario de reporte -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-zinc-700 mb-8">
+                    <h3 class="text-xl font-bold mb-4 text-indigo-800 dark:text-indigo-300">➕ Nuevo Servicio</h3>
+                    <form id="reporte-form" class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Empresa /
+                                Cliente</label>
+                            <select id="reporte-empresa" required
+                                class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Seleccione una empresa...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Fecha del
+                                Servicio</label>
+                            <input type="date" id="reporte-fecha" required
+                                class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Horas
+                                Invertidas</label>
+                            <input type="number" id="reporte-horas" step="0.25" min="0.25" placeholder="Ej: 2.5"
+                                required
+                                class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Descripción
+                                del Servicio</label>
+                            <input type="text" id="reporte-descripcion" placeholder="Ej: Soporte técnico equipos"
+                                required
+                                class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div class="md:col-span-2 flex justify-end">
+                            <button type="submit"
+                                class="bg-indigo-600 text-white font-bold py-2 px-8 rounded-lg hover:bg-indigo-700 transition shadow-md">
+                                ✅ Guardar Servicio
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Filtros de lista -->
+                <div class="bg-white p-4 rounded-2xl shadow-lg dark:bg-zinc-700 mb-4">
+                    <div class="grid md:grid-cols-3 gap-4 items-end">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Filtrar por
+                                Empresa</label>
+                            <select id="filtro-servicio-empresa"
+                                class="w-full p-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg">
+                                <option value="">Todas las empresas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Desde</label>
+                            <input type="date" id="filtro-servicio-desde"
+                                class="w-full p-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Hasta</label>
+                            <input type="date" id="filtro-servicio-hasta"
+                                class="w-full p-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg">
+                        </div>
+                    </div>
+                    <div class="mt-3 text-right">
+                        <button id="btn-filtrar-servicios"
+                            class="bg-gray-600 text-white py-2 px-6 rounded-lg hover:bg-gray-700 transition text-sm">
+                            🔍 Filtrar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla de servicios -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-zinc-700">
+                    <h3 class="text-lg font-bold mb-4 dark:text-zinc-100">📋 Servicios Registrados</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-gray-100 dark:bg-zinc-600 text-sm uppercase tracking-wider">
+                                    <th class="p-3">Empresa</th>
+                                    <th class="p-3">Fecha</th>
+                                    <th class="p-3">Descripción</th>
+                                    <th class="p-3 text-right">Horas</th>
+                                    <th class="p-3 text-center">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="servicios-table-body" class="divide-y divide-gray-200 dark:divide-zinc-600">
+                            </tbody>
+                        </table>
+                        <p id="no-servicios-msg" class="text-center text-gray-500 dark:text-zinc-400 py-6 hidden">No hay
+                            servicios registrados para los filtros seleccionados.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contratos Page -->
+            <div id="page-contratos" class="page hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold">Gestión de Contratos</h2>
+                        <p class="text-gray-600 dark:text-zinc-300">Configuración contractual y cierres quincenales por
+                            empresa.</p>
+                    </div>
+                </div>
+
+                <!-- Selector de empresa -->
+                <div class="bg-white p-4 rounded-2xl shadow-lg dark:bg-zinc-700 mb-6">
+                    <div class="flex gap-4 items-end">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-1">Seleccionar
+                                Empresa</label>
+                            <select id="contrato-empresa-selector"
+                                class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Seleccione una empresa...</option>
+                            </select>
+                        </div>
+                        <button id="btn-ver-contrato"
+                            class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition shadow">
+                            📂 Cargar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Panel de contrato activo -->
+                <div id="panel-contrato-activo" class="hidden">
+                    <!-- Configuración activa -->
+                    <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-zinc-700 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold text-indigo-800 dark:text-indigo-300">📑 Configuración Activa
+                            </h3>
+                            <button id="btn-nuevo-contrato"
+                                class="bg-indigo-600 text-white py-2 px-5 rounded-lg hover:bg-indigo-700 transition text-sm shadow">
+                                ✏️ Nuevo Contrato
+                            </button>
+                        </div>
+                        <div id="contrato-activo-info" class="grid md:grid-cols-3 gap-4">
+                            <!-- Info llenada por JS -->
+                        </div>
+                    </div>
+
+                    <!-- Historial de contratos -->
+                    <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-zinc-700 mb-6">
+                        <h3 class="text-xl font-bold mb-4 dark:text-zinc-100">📚 Historial de Configuraciones</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead>
+                                    <tr class="bg-gray-100 dark:bg-zinc-600 uppercase tracking-wider">
+                                        <th class="p-3">Tipo</th>
+                                        <th class="p-3">Desde</th>
+                                        <th class="p-3">Hasta</th>
+                                        <th class="p-3">Valor/Config</th>
+                                        <th class="p-3">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historial-contratos-body"
+                                    class="divide-y divide-gray-200 dark:divide-zinc-600">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Cierres quincenales -->
+                    <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-zinc-700">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold dark:text-zinc-100">📊 Cierres Quincenales</h3>
+                            <button id="btn-nuevo-cierre"
+                                class="bg-green-600 text-white py-2 px-5 rounded-lg hover:bg-green-700 transition text-sm shadow">
+                                ➕ Generar Cierre
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead>
+                                    <tr class="bg-gray-100 dark:bg-zinc-600 uppercase tracking-wider">
+                                        <th class="p-3">Período</th>
+                                        <th class="p-3">Tipo</th>
+                                        <th class="p-3 text-right">Total Horas</th>
+                                        <th class="p-3 text-right">Total Cobro</th>
+                                        <th class="p-3 text-center">Estado</th>
+                                        <th class="p-3 text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cierres-table-body" class="divide-y divide-gray-200 dark:divide-zinc-600">
+                                </tbody>
+                            </table>
+                            <p id="no-cierres-msg" class="text-center text-gray-500 dark:text-zinc-400 py-6 hidden">No
+                                hay cierres registrados.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="panel-contrato-placeholder" class="text-center text-gray-400 dark:text-zinc-500 py-16">
+                    <p class="text-5xl mb-4">📄</p>
+                    <p class="text-xl">Selecciona una empresa para ver su configuración contractual.</p>
                 </div>
             </div>
 
@@ -451,6 +667,152 @@
             </form>
         </div>
     </div>
+    <!-- Modal: Configuración de Contrato -->
+    <div id="contrato-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+        <div
+            class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-lg p-8 relative modal-content transform scale-95 transition-transform duration-300">
+            <button id="cancel-contrato-modal"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl">&times;</button>
+            <h3 class="text-2xl font-bold text-gray-800 dark:text-zinc-100 mb-6">📑 Configurar Contrato</h3>
+            <p id="contrato-empresa-nombre" class="text-sm text-indigo-600 dark:text-indigo-400 font-semibold mb-4"></p>
+
+            <form id="contrato-form" class="space-y-4">
+                <input type="hidden" id="contrato-empresa-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Tipo de
+                            Cobro</label>
+                        <select id="contrato-tipo" required
+                            class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="FIJO">FIJO (bolsa/contrato cerrado)</option>
+                            <option value="POR_HORAS">POR HORAS</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Vigente
+                            Desde</label>
+                        <input type="date" id="contrato-vigente-desde" required
+                            class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Campos FIJO -->
+                <div id="campo-valor-fijo">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">💰 Valor Quincenal
+                        Fijo ($)</label>
+                    <input type="number" id="contrato-valor-fijo" min="0" placeholder="Ej: 375000"
+                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Campos POR_HORAS -->
+                <div id="campos-por-horas" class="space-y-3 hidden">
+                    <p
+                        class="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-zinc-700 p-2 rounded-lg">
+                        💡 Las horas se toman de los servicios reportados. Define la tarifa y el umbral para horas
+                        extra.
+                    </p>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Horas base /
+                                período</label>
+                            <input type="number" id="contrato-horas-incluidas" min="0" placeholder="Ej: 40"
+                                class="w-full p-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Valor hora
+                                ($)</label>
+                            <input type="number" id="contrato-valor-hora" min="0" placeholder="Ej: 25000"
+                                class="w-full p-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Valor hora
+                                extra ($)</label>
+                            <input type="number" id="contrato-valor-hora-extra" min="0" placeholder="Ej: 30000"
+                                class="w-full p-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Observaciones</label>
+                    <textarea id="contrato-observaciones" rows="2" placeholder="Notas adicionales..."
+                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                    <button type="button" id="close-contrato-modal"
+                        class="flex-1 py-3 bg-gray-200 dark:bg-zinc-600 text-gray-800 dark:text-zinc-200 rounded-lg hover:bg-gray-300 transition font-semibold">Cancelar</button>
+                    <button type="submit"
+                        class="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow-lg">Guardar
+                        Contrato</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Generar Cierre Quincenal -->
+    <div id="cierre-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+        <div
+            class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-md p-8 relative modal-content transform scale-95 transition-transform duration-300">
+            <button id="cancel-cierre-modal"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl">&times;</button>
+            <h3 class="text-2xl font-bold text-gray-800 dark:text-zinc-100 mb-2">📊 Generar Cierre Quincenal</h3>
+            <p id="cierre-empresa-nombre" class="text-sm text-indigo-600 dark:text-indigo-400 font-semibold mb-5"></p>
+
+            <form id="cierre-form" class="space-y-4">
+                <input type="hidden" id="cierre-empresa-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Desde</label>
+                        <input type="date" id="cierre-desde" required
+                            class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Hasta</label>
+                        <input type="date" id="cierre-hasta" required
+                            class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <button type="button" id="btn-preview-cierre"
+                    class="w-full py-2 bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-200 rounded-lg hover:bg-gray-200 transition text-sm border border-gray-300 dark:border-zinc-600">
+                    🔍 Vista previa del cálculo
+                </button>
+
+                <!-- Preview box -->
+                <div id="cierre-preview" class="hidden bg-indigo-50 dark:bg-zinc-700 rounded-lg p-4 space-y-2 text-sm">
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                    <button type="button" id="close-cierre-modal"
+                        class="flex-1 py-3 bg-gray-200 dark:bg-zinc-600 text-gray-800 dark:text-zinc-200 rounded-lg hover:bg-gray-300 transition font-semibold">Cancelar</button>
+                    <button type="submit"
+                        class="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold shadow-lg">Guardar
+                        Cierre</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Vista PDF de Cierre -->
+    <div id="pdf-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+        <div
+            class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative max-h-screen overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 no-print">
+                <h3 class="text-2xl font-bold text-gray-800 dark:text-zinc-100">🖨️ Reporte Quincenal</h3>
+                <div class="flex gap-3">
+                    <button id="btn-imprimir-pdf"
+                        class="bg-indigo-600 text-white py-2 px-5 rounded-lg hover:bg-indigo-700 transition text-sm">Imprimir
+                        / PDF</button>
+                    <button id="close-pdf-modal"
+                        class="bg-gray-200 dark:bg-zinc-600 text-gray-700 dark:text-zinc-200 py-2 px-4 rounded-lg hover:bg-gray-300 transition text-sm">Cerrar</button>
+                </div>
+            </div>
+            <div id="pdf-contenido">
+                <!-- Llenado por JS -->
+            </div>
+        </div>
+    </div>
+
     <div id="invoice-modal"
         class="hidden modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center p-4">
         <div

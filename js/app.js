@@ -116,6 +116,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 elements.clientSelect.appendChild(option);
             });
         }
+
+        // Módulo contratos: poblar selects de empresa y añadir botón ⚙ Contrato
+        if (typeof poblarSelectsEmpresas === 'function') poblarSelectsEmpresas();
+        if (typeof renderClientesConBotonContrato === 'function') renderClientesConBotonContrato();
     }
 
     function renderUsers() {
@@ -1099,4 +1103,571 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     init();
-});
+
+    // ═══════════════════════════════════════════════════════════
+    // MÓDULO: CONTRATOS, REPORTE DE HORAS Y CIERRES QUINCENALES
+    // ═══════════════════════════════════════════════════════════
+
+    const COP = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+
+    // Estado del módulo de contratos
+    const contratoState = {
+        empresaActual: null,   // { id, name, email }
+        configActiva: null,
+    };
+
+    // ── Utilidad: llenado de selects de empresa ────────────────
+    function poblarSelectsEmpresas() {
+        const selectores = [
+            $('#reporte-empresa'),
+            $('#filtro-servicio-empresa'),
+            $('#contrato-empresa-selector'),
+        ];
+        selectores.forEach(sel => {
+            if (!sel) return;
+            const val = sel.value; // conservar selección actual
+            while (sel.options.length > 1) sel.remove(1);
+            appState.clients.forEach(c => {
+                const opt = new Option(c.name, c.id);
+                sel.add(opt);
+            });
+            sel.value = val;
+        });
+    }
+
+
+    // Hook: cuando se renderizan clientes, también poblar selects y añadir botón contrato
+    // (se ejecuta desde renderClients() existente, extendido abajo)
+
+    // Añadir botón "⚙ Contrato" en tabla de Clientes
+    function renderClientesConBotonContrato() {
+        document.querySelectorAll('#clients-table-body tr').forEach(tr => {
+            // Evitar duplicados
+            if (tr.querySelector('.contrato-btn')) return;
+            const lastTd = tr.querySelector('td:last-child');
+            if (!lastTd) return;
+            const btnEl = document.createElement('button');
+            btnEl.className = 'contrato-btn text-indigo-600 hover:text-indigo-800 ml-4 text-sm font-semibold';
+            btnEl.textContent = '⚙ Contrato';
+            // Obtener id del botón de editar
+            const editBtn = tr.querySelector('.edit-client-btn');
+            if (editBtn) {
+                const cid = editBtn.dataset.id;
+                btnEl.dataset.id = cid;
+            }
+            lastTd.appendChild(btnEl);
+        });
+    }
+
+    // Abrir modal de contrato desde la tabla de clientes
+    document.querySelector('#clients-table-body')?.addEventListener('click', e => {
+        if (e.target.classList.contains('contrato-btn')) {
+            const id = e.target.dataset.id;
+            const client = appState.clients.find(c => String(c.id) === String(id));
+            if (client) abrirModalContrato(client);
+        }
+    });
+
+    // ── MODAL CONTRATO ─────────────────────────────────────────
+
+    function abrirModalContrato(client) {
+        $('#contrato-empresa-id').value = client.id;
+        $('#contrato-empresa-nombre').textContent = `Empresa: ${client.name}`;
+        $('#contrato-form').reset();
+        $('#contrato-empresa-id').value = client.id;
+        actualizarCamposSegunTipo($('#contrato-tipo').value);
+        // Pre-llenar fecha de hoy
+        $('#contrato-vigente-desde').value = new Date().toISOString().split('T')[0];
+        const modal = $('#contrato-modal');
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.querySelector('.modal-content').classList.remove('scale-95'), 10);
+    }
+
+    function cerrarModalContrato() {
+        const modal = $('#contrato-modal');
+        modal.querySelector('.modal-content').classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+
+    function actualizarCamposSegunTipo(tipo) {
+        if (tipo === 'FIJO') {
+            $('#campo-valor-fijo').classList.remove('hidden');
+            $('#campos-por-horas').classList.add('hidden');
+        } else {
+            $('#campo-valor-fijo').classList.add('hidden');
+            $('#campos-por-horas').classList.remove('hidden');
+        }
+    }
+
+    $('#contrato-tipo')?.addEventListener('change', e => actualizarCamposSegunTipo(e.target.value));
+    $('#cancel-contrato-modal')?.addEventListener('click', cerrarModalContrato);
+    $('#close-contrato-modal')?.addEventListener('click', cerrarModalContrato);
+
+    $('#contrato-form')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const tipo = $('#contrato-tipo').value;
+        const payload = {
+            action: 'save_empresa_config',
+            empresaId: $('#contrato-empresa-id').value,
+            tipoCobro: tipo,
+            valorFijo: $('#contrato-valor-fijo')?.value || 0,
+            horasIncluidas: $('#contrato-horas-incluidas')?.value || 0,
+            valorHora: $('#contrato-valor-hora')?.value || 0,
+            valorHoraExtra: $('#contrato-valor-hora-extra')?.value || 0,
+            vigenteDesde: $('#contrato-vigente-desde').value,
+            observaciones: $('#contrato-observaciones').value,
+        };
+        try {
+            showToast('⏳ Guardando contrato...');
+            const res = await apiPost(payload);
+            if (res.status === 'success') {
+                showToast('✅ Contrato guardado correctamente');
+                cerrarModalContrato();
+                // Si hay empresa seleccionada en panel contratos, recargarla
+                if (contratoState.empresaActual?.id == payload.empresaId) {
+                    cargarPanelContrato(contratoState.empresaActual);
+                }
+            } else {
+                showToast(`❌ ${res.message}`);
+            }
+        } catch (err) {
+            showToast('❌ Error de conexión');
+        }
+    });
+
+    // ── PÁGINA CONTRATOS ───────────────────────────────────────
+
+    $('#btn-ver-contrato')?.addEventListener('click', () => {
+        const sel = $('#contrato-empresa-selector');
+        const id = sel.value;
+        const name = sel.options[sel.selectedIndex]?.text;
+        if (!id) { showToast('⚠️ Selecciona una empresa'); return; }
+        const client = appState.clients.find(c => String(c.id) === String(id));
+        cargarPanelContrato(client || { id, name });
+    });
+
+    async function cargarPanelContrato(client) {
+        contratoState.empresaActual = client;
+        $('#panel-contrato-placeholder').classList.add('hidden');
+        $('#panel-contrato-activo').classList.remove('hidden');
+
+        // Cargar config activa
+        try {
+            const url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_empresa_config&empresaId=${client.id}`;
+            const res = await (await fetch(url)).json();
+            const config = res.data?.config;
+            contratoState.configActiva = config;
+            renderConfigActiva(config, client);
+        } catch (e) { renderConfigActiva(null, client); }
+
+        // Cargar historial
+        try {
+            const url2 = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_empresa_config_history&empresaId=${client.id}`;
+            const res2 = await (await fetch(url2)).json();
+            renderHistorialContratos(res2.data?.history || []);
+        } catch (e) { renderHistorialContratos([]); }
+
+        // Cargar cierres
+        try {
+            const url3 = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_cierres&empresaId=${client.id}`;
+            const res3 = await (await fetch(url3)).json();
+            renderCierres(res3.data?.cierres || [], client);
+        } catch (e) { renderCierres([], client); }
+    }
+
+    function renderConfigActiva(config, client) {
+        const box = $('#contrato-activo-info');
+
+        // Siempre asignar el onclick, tanto si hay config como si no
+        const btnNuevoContrato = $('#btn-nuevo-contrato');
+        if (btnNuevoContrato) {
+            btnNuevoContrato.onclick = () => abrirModalContrato(client);
+        }
+
+        if (!config) {
+            box.innerHTML = `<p class="col-span-3 text-gray-400 dark:text-zinc-500 text-center py-4">Sin configuración activa. Haz clic en <strong>Nuevo Contrato</strong> para configurar.</p>`;
+            return;
+        }
+        const tipo = config.TipoCobro || config['TipoCobro'];
+        const badge = tipo === 'FIJO'
+            ? '<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">FIJO</span>'
+            : '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">POR HORAS</span>';
+
+        let detalle = '';
+        if (tipo === 'FIJO') {
+            detalle = `<div><p class="text-xs text-gray-500 dark:text-zinc-400">Valor Quincenal</p><p class="text-2xl font-bold text-indigo-700 dark:text-indigo-300">${COP(config.ValorFijoQuincenal || 0)}</p></div>`;
+        } else {
+            detalle = `
+                <div><p class="text-xs text-gray-500 dark:text-zinc-400">Horas incluidas</p><p class="text-xl font-bold">${config.HorasIncluidas || 0} h</p></div>
+                <div><p class="text-xs text-gray-500 dark:text-zinc-400">Valor hora</p><p class="text-xl font-bold">${COP(config.ValorHora || 0)}</p></div>
+                <div><p class="text-xs text-gray-500 dark:text-zinc-400">Valor hora extra</p><p class="text-xl font-bold">${COP(config.ValorHoraExtra || 0)}</p></div>
+            `;
+        }
+        box.innerHTML = `
+            <div class="bg-indigo-50 dark:bg-zinc-600 p-4 rounded-xl">
+                <p class="text-xs text-gray-500 dark:text-zinc-400 mb-1">Tipo de Contrato</p>
+                ${badge}
+                <p class="text-xs text-gray-400 mt-2">Desde: ${config.VigenteDesde || '—'}</p>
+            </div>
+            ${detalle}
+        `;
+    }
+
+    function renderHistorialContratos(history) {
+        const tbody = $('#historial-contratos-body');
+        tbody.innerHTML = '';
+        if (!history.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">Sin historial</td></tr>';
+            return;
+        }
+        history.forEach(h => {
+            const tipo = h.TipoCobro || '—';
+            const valor = tipo === 'FIJO'
+                ? COP(h.ValorFijoQuincenal || 0)
+                : `${h.HorasIncluidas || 0}h · ${COP(h.ValorHora || 0)}/h`;
+            const estadoBadge = h.Estado === 'Activa'
+                ? '<span class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Activa</span>'
+                : '<span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">Cerrada</span>';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-3 font-medium">${tipo}</td>
+                <td class="p-3">${h.VigenteDesde || '—'}</td>
+                <td class="p-3">${h.VigenteHasta || 'vigente'}</td>
+                <td class="p-3">${valor}</td>
+                <td class="p-3">${estadoBadge}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderCierres(cierres, client) {
+        const tbody = $('#cierres-table-body');
+        const noMsg = $('#no-cierres-msg');
+        tbody.innerHTML = '';
+
+        // Botón generar cierre
+        $('#btn-nuevo-cierre').onclick = () => abrirModalCierre(client);
+
+        if (!cierres.length) {
+            noMsg.classList.remove('hidden');
+            return;
+        }
+        noMsg.classList.add('hidden');
+
+        cierres.forEach(c => {
+            const estadoBadge = c.Estado === 'Cerrado'
+                ? '<span class="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs">Cerrado</span>'
+                : '<span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs">Abierto</span>';
+            const cerrarBtn = c.Estado === 'Abierto'
+                ? `<button class="cerrar-cierre-btn text-xs text-red-600 hover:text-red-800 mr-2" data-id="${c.ID}">Cerrar</button>`
+                : '';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-3">${c.Desde} → ${c.Hasta}</td>
+                <td class="p-3 font-medium">${c.TipoCobro || '—'}</td>
+                <td class="p-3 text-right">${c.TotalHoras || 0} h</td>
+                <td class="p-3 text-right font-bold text-indigo-700 dark:text-indigo-300">${COP(c.TotalCobro || 0)}</td>
+                <td class="p-3 text-center">${estadoBadge}</td>
+                <td class="p-3 text-center">
+                    ${cerrarBtn}
+                    <button class="ver-pdf-btn text-xs text-indigo-600 hover:text-indigo-800" data-cierre='${JSON.stringify(c)}' data-empresa="${client.name}">📄 PDF</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Delegación de eventos en la tabla de cierres
+        tbody.addEventListener('click', async e => {
+            if (e.target.classList.contains('cerrar-cierre-btn')) {
+                if (!confirm('¿Cerrar este cierre quincenal definitivamente?')) return;
+                const id = e.target.dataset.id;
+                const res = await apiPost({ action: 'cerrar_cierre', id });
+                if (res.status === 'success') {
+                    showToast('✅ Cierre cerrado'); cargarPanelContrato(client);
+                } else showToast(`❌ ${res.message}`);
+            }
+            if (e.target.classList.contains('ver-pdf-btn')) {
+                const cierre = JSON.parse(e.target.dataset.cierre);
+                const empresa = e.target.dataset.empresa;
+                mostrarPDF(cierre, empresa, client.id);
+            }
+        });
+    }
+
+    // ── MODAL CIERRE ───────────────────────────────────────────
+
+    function abrirModalCierre(client) {
+        $('#cierre-empresa-id').value = client.id;
+        $('#cierre-empresa-nombre').textContent = `Empresa: ${client.name}`;
+        $('#cierre-form').reset();
+        $('#cierre-empresa-id').value = client.id;
+        $('#cierre-preview').classList.add('hidden');
+
+        // Sugerir quincena actual
+        const hoy = new Date();
+        const dia = hoy.getDate();
+        const anio = hoy.getFullYear();
+        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        if (dia <= 15) {
+            $('#cierre-desde').value = `${anio}-${mes}-01`;
+            $('#cierre-hasta').value = `${anio}-${mes}-15`;
+        } else {
+            const ultimo = new Date(anio, hoy.getMonth() + 1, 0).getDate();
+            $('#cierre-desde').value = `${anio}-${mes}-16`;
+            $('#cierre-hasta').value = `${anio}-${mes}-${ultimo}`;
+        }
+
+        const modal = $('#cierre-modal');
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.querySelector('.modal-content').classList.remove('scale-95'), 10);
+    }
+
+    function cerrarModalCierre() {
+        const modal = $('#cierre-modal');
+        modal.querySelector('.modal-content').classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+
+    $('#cancel-cierre-modal')?.addEventListener('click', cerrarModalCierre);
+    $('#close-cierre-modal')?.addEventListener('click', cerrarModalCierre);
+
+    $('#btn-preview-cierre')?.addEventListener('click', async () => {
+        const empresaId = $('#cierre-empresa-id').value;
+        const desde = $('#cierre-desde').value;
+        const hasta = $('#cierre-hasta').value;
+        if (!desde || !hasta) { showToast('⚠️ Completa las fechas'); return; }
+        try {
+            showToast('⏳ Calculando...');
+            const res = await apiPost({ action: 'calcular_cierre', empresaId, desde, hasta });
+            if (res.status === 'success') {
+                const d = res.data;
+                const box = $('#cierre-preview');
+                box.classList.remove('hidden');
+                box.innerHTML = `
+                    <div class="flex justify-between"><span>Tipo de contrato:</span><strong>${d.tipoCobro}</strong></div>
+                    <div class="flex justify-between"><span>Total horas:</span><strong>${d.totalHoras} h</strong></div>
+                    ${d.tipoCobro === 'POR_HORAS' ? `
+                    <div class="flex justify-between"><span>Horas normales:</span><strong>${d.horasNormales} h</strong></div>
+                    <div class="flex justify-between"><span>Horas extra:</span><strong>${d.horasExtra} h</strong></div>
+                    ` : ''}
+                    <div class="flex justify-between border-t pt-2 mt-2 text-base"><span class="font-bold">Total a cobrar:</span><strong class="text-indigo-700 dark:text-indigo-300">${COP(d.totalCobro)}</strong></div>
+                `;
+                showToast('✅ Cálculo listo');
+            } else {
+                showToast(`❌ ${res.message}`);
+            }
+        } catch (err) {
+            showToast('❌ Error de conexión');
+        }
+    });
+
+    $('#cierre-form')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const empresaId = $('#cierre-empresa-id').value;
+        const desde = $('#cierre-desde').value;
+        const hasta = $('#cierre-hasta').value;
+        const empresaName = contratoState.empresaActual?.name || '';
+        try {
+            showToast('⏳ Guardando cierre...');
+            const res = await apiPost({ action: 'save_cierre', empresaId, desde, hasta, nombreEmpresa: empresaName });
+            if (res.status === 'success') {
+                showToast(`✅ Cierre guardado · ${COP(res.data.totalCobro)}`);
+                cerrarModalCierre();
+                cargarPanelContrato(contratoState.empresaActual);
+            } else {
+                showToast(`❌ ${res.message}`);
+            }
+        } catch (err) {
+            showToast('❌ Error de conexión');
+        }
+    });
+
+    // ── MODAL PDF ──────────────────────────────────────────────
+
+    async function mostrarPDF(cierre, empresaNombre, empresaId) {
+        // Cargar servicios del período para el detalle
+        let servicios = [];
+        try {
+            const url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_servicios&empresaId=${empresaId}&desde=${cierre.Desde}&hasta=${cierre.Hasta}`;
+            const res = await (await fetch(url)).json();
+            servicios = res.data?.servicios || [];
+        } catch (e) { }
+
+        const filas = servicios.map(s =>
+            `<tr><td class="border p-2">${s.Fecha}</td><td class="border p-2">${s.Descripcion}</td><td class="border p-2 text-right">${s.Horas} h</td></tr>`
+        ).join('') || '<tr><td colspan="3" class="border p-2 text-center text-gray-400">Sin servicios en este período</td></tr>';
+
+        const tipoCobro = cierre.TipoCobro || (parseFloat(cierre.TotalHoras) > 0 ? 'POR_HORAS' : 'FIJO');
+        const resumen = tipoCobro === 'POR_HORAS' ? `
+            <tr><td class="font-semibold p-1">Horas normales:</td><td class="p-1 text-right">${cierre.HorasNormales || 0} h</td></tr>
+            <tr><td class="font-semibold p-1">Horas extra:</td><td class="p-1 text-right">${cierre.HorasExtra || 0} h</td></tr>
+        ` : '';
+
+        $('#pdf-contenido').innerHTML = `
+            <div id="pdf-print-area" style="font-family: sans-serif;">
+                <div style="text-align:center; margin-bottom:16px;">
+                    <h1 style="font-size:1.5rem; font-weight:bold; color:#4338CA;">REPORTE QUINCENAL DE SERVICIOS</h1>
+                    <p style="color:#6b7280;">TimeBill Pro · TechFix Solutions</p>
+                </div>
+                <hr style="margin-bottom:12px;">
+                <table style="width:100%; margin-bottom:16px;">
+                    <tr><td><strong>Empresa:</strong> ${empresaNombre}</td><td style="text-align:right;"><strong>Período:</strong> ${cierre.Desde} al ${cierre.Hasta}</td></tr>
+                    <tr><td><strong>Tipo de contrato:</strong> ${cierre.TipoCobro}</td><td style="text-align:right;"><strong>Estado:</strong> ${cierre.Estado}</td></tr>
+                </table>
+                <h3 style="font-weight:bold; margin-bottom:8px;">Servicios Reportados</h3>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:16px; font-size:0.9rem;">
+                    <thead><tr style="background:#4338CA; color:white;">
+                        <th class="border p-2 text-left">Fecha</th>
+                        <th class="border p-2 text-left">Descripción</th>
+                        <th class="border p-2 text-right">Horas</th>
+                    </tr></thead>
+                    <tbody>${filas}</tbody>
+                </table>
+                <h3 style="font-weight:bold; margin-bottom:8px;">Resumen de Cobro</h3>
+                <table style="width:50%; margin-left:auto; border-collapse:collapse; font-size:0.95rem;">
+                    <tr><td class="font-semibold p-1">Total horas:</td><td class="p-1 text-right">${cierre.TotalHoras || 0} h</td></tr>
+                    ${resumen}
+                    <tr style="border-top: 2px solid #4338CA; font-size:1.1rem;">
+                        <td class="font-bold p-1">TOTAL A COBRAR:</td>
+                        <td class="font-bold p-1 text-right" style="color:#4338CA;">${COP(cierre.TotalCobro || 0)}</td>
+                    </tr>
+                </table>
+                <p style="margin-top:32px; font-size:0.75rem; color:#9ca3af; text-align:center;">
+                    Generado por TimeBill Pro · ${new Date().toLocaleDateString('es-CO')}
+                </p>
+            </div>
+        `;
+
+        const modal = $('#pdf-modal');
+        modal.classList.remove('hidden');
+    }
+
+    $('#close-pdf-modal')?.addEventListener('click', () => $('#pdf-modal').classList.add('hidden'));
+    $('#btn-imprimir-pdf')?.addEventListener('click', () => window.print());
+
+    // ── PÁGINA REPORTE DE HORAS ────────────────────────────────
+
+    // Precargar fecha de hoy en el form de reporte
+    const hoyISO = new Date().toISOString().split('T')[0];
+    if ($('#reporte-fecha')) $('#reporte-fecha').value = hoyISO;
+
+    $('#reporte-form')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const empresaId = $('#reporte-empresa').value;
+        const fecha = $('#reporte-fecha').value;
+        const horas = $('#reporte-horas').value;
+        const descripcion = $('#reporte-descripcion').value;
+
+        if (!empresaId) { showToast('⚠️ Selecciona una empresa'); return; }
+
+        try {
+            showToast('⏳ Guardando servicio...');
+            const res = await apiPost({ action: 'save_servicio', empresaId, fecha, horas, descripcion });
+            if (res.status === 'success') {
+                showToast('✅ Servicio registrado');
+                $('#reporte-form').reset();
+                $('#reporte-fecha').value = hoyISO;
+                cargarServiciosTabla();
+            } else {
+                showToast(`❌ ${res.message}`);
+            }
+        } catch (err) {
+            showToast('❌ Error de conexión');
+        }
+    });
+
+    async function cargarServiciosTabla() {
+        const empresaId = $('#filtro-servicio-empresa').value;
+        const desde = $('#filtro-servicio-desde').value;
+        const hasta = $('#filtro-servicio-hasta').value;
+
+        let url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_servicios`;
+        if (empresaId) url += `&empresaId=${empresaId}`;
+        if (desde) url += `&desde=${desde}`;
+        if (hasta) url += `&hasta=${hasta}`;
+
+        try {
+            const res = await (await fetch(url)).json();
+            const servicios = res.data?.servicios || [];
+            renderTablaServicios(servicios);
+        } catch (e) {
+            renderTablaServicios([]);
+        }
+    }
+
+    function renderTablaServicios(servicios) {
+        const tbody = $('#servicios-table-body');
+        const noMsg = $('#no-servicios-msg');
+        tbody.innerHTML = '';
+
+        if (!servicios.length) {
+            noMsg.classList.remove('hidden');
+            return;
+        }
+        noMsg.classList.add('hidden');
+
+        servicios.forEach(s => {
+            // Nombre de empresa desde appState
+            const client = appState.clients.find(c => String(c.id) === String(s.EmpresaID)) || { name: s.EmpresaID };
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-3 font-medium">${client.name}</td>
+                <td class="p-3">${s.Fecha}</td>
+                <td class="p-3 text-gray-600 dark:text-zinc-300">${s.Descripcion}</td>
+                <td class="p-3 text-right font-bold">${s.Horas} h</td>
+                <td class="p-3 text-center">
+                    <button class="eliminar-servicio-btn text-red-500 hover:text-red-700 text-sm" data-id="${s.ID}">🗑 Eliminar</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        tbody.addEventListener('click', async e => {
+            if (e.target.classList.contains('eliminar-servicio-btn')) {
+                if (!confirm('¿Eliminar este servicio?')) return;
+                const id = e.target.dataset.id;
+                const res = await apiPost({ action: 'delete_servicio', id });
+                if (res.status === 'success') {
+                    showToast('✅ Servicio eliminado');
+                    cargarServiciosTabla();
+                } else {
+                    showToast(`❌ ${res.message}`);
+                }
+            }
+        });
+    }
+
+    $('#btn-filtrar-servicios')?.addEventListener('click', cargarServiciosTabla);
+
+    // ── Extensión de switchView para el módulo de contratos ────
+    // Interceptamos el evento de navegación mediante el listener preexistente
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', e => {
+            const viewId = e.currentTarget.getAttribute('href')?.substring(1);
+            if (viewId === 'reporte') {
+                setTimeout(() => { poblarSelectsEmpresas(); cargarServiciosTabla(); }, 50);
+            }
+            if (viewId === 'contratos') {
+                setTimeout(() => poblarSelectsEmpresas(), 50);
+            }
+        });
+    });
+
+    // ── Utilidad POST ──────────────────────────────────────────
+    async function apiPost(payload) {
+        const res = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+        return res.json();
+    }
+
+    // Cargar clientes al inicio: la función original ya existe.
+    // Este módulo se enlaza al evento de carga principal mediante el
+    // bloque de loadClientsFromGoogleSheets ya llamado en init().
+    // poblarSelectsEmpresas() se llama explícitamente tras renderClients().
+
+}); // fin DOMContentLoaded
+
