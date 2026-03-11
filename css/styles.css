@@ -38,3 +38,72 @@ body {
         transform: rotate(360deg);
     }
 }
+
+/* Neon Futurista Styles */
+.neon-border {
+    box-shadow: 0 0 10px rgba(79, 70, 229, 0.4), 0 0 20px rgba(79, 70, 229, 0.2);
+    border: 1px solid rgba(79, 70, 229, 0.5);
+}
+
+.neon-text {
+    text-shadow: 0 0 10px rgba(79, 70, 229, 0.8), 0 0 20px rgba(79, 70, 229, 0.4);
+}
+
+.neon-glow-indigo {
+    background: radial-gradient(circle, rgba(67, 56, 202, 0.2) 0%, rgba(15, 23, 42, 0) 70%);
+}
+
+.glass-card {
+    background: rgba(31, 41, 55, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.login-bg {
+    background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%);
+}
+
+.neon-button {
+    transition: all 0.3s ease;
+    box-shadow: 0 0 15px rgba(79, 70, 229, 0);
+}
+
+.neon-button:hover {
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.6);
+    transform: translateY(-2px);
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.page-transition {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

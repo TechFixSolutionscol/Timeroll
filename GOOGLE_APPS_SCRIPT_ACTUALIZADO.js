@@ -6,7 +6,7 @@
  */
 
 // ── Hojas existentes ──────────────────────────────────────────
-const SPREADSHEET_ID = "tu_id_de_spreadsheet_aqui";
+const SPREADSHEET_ID = "1JAPlVAhKZdmJdCUzy3dIy_a91-F6rjC5U4JTfNHMENg";
 const SHEET_SESIONES = "Sesiones";
 const SHEET_CLIENTES = "Clientes";
 const SHEET_CONFIG = "Configuración";
@@ -16,9 +16,40 @@ const SHEET_USUARIOS = "Usuarios";
 const SHEET_EMP_CONFIG = "Empresa_Config";
 const SHEET_SERVICIOS = "Servicios_Reportados";
 const SHEET_CIERRES = "Cierres_Quincenales";
+const SHEET_ASIGNACIONES = "Asignaciones_Empleados";
+
+/**
+ * Obtiene el siguiente ID disponible para una hoja.
+ * Busca el valor máximo en la primera columna y le suma 1.
+ */
+function _getNextId(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 1;
+  const values = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let maxId = 0;
+  for (let i = 0; i < values.length; i++) {
+    const id = parseInt(values[i][0]);
+    if (!isNaN(id) && id > maxId) maxId = id;
+  }
+  return maxId + 1;
+}
+
+/**
+ * Convierte una fila de datos en un objeto basado en los headers de la hoja.
+ */
+function _getRowObject(headers, rowData) {
+  const obj = {};
+  headers.forEach((h, i) => {
+    // Normalizar header (quitar espacios, minúsculas para consistencia si se desea, 
+    // pero aquí mantendremos nombres exactos de HEADERS_USUARIOS)
+    const key = String(h).trim();
+    obj[key] = rowData[i];
+  });
+  return obj;
+}
 
 // ── Headers existentes ────────────────────────────────────────
-const HEADERS_SESIONES = ["ID", "Fecha", "Hora Inicio", "Hora Fin", "Cliente", "Email Cliente", "Duración (horas)", "Valor/Hora ($)", "Total ($)", "Estado"];
+const HEADERS_SESIONES = ["ID", "Fecha", "Hora Inicio", "Hora Fin", "Cliente", "Email Cliente", "Duración (horas)", "Valor/Hora ($)", "Total ($)", "Estado", "UsuarioID"];
 const HEADERS_CLIENTES = ["ID", "Nombre", "Email", "Teléfono", "Dirección", "Fecha Creación", "Estado"];
 const HEADERS_CONFIG = ["Parámetro", "Valor", "Tipo", "Descripción"];
 const HEADERS_USUARIOS = ["ID", "Email", "Contraseña (Hash)", "Nombre", "Rol", "Fecha Registro", "Gmail_SenderEmail", "Gmail_AppPassword", "Estado"];
@@ -29,7 +60,8 @@ const HEADERS_EMP_CONFIG = [
   "ValorFijoQuincenal", "HorasIncluidas", "ValorHora", "ValorHoraExtra",
   "Estado", "Observaciones"
 ];
-const HEADERS_SERVICIOS = ["ID", "EmpresaID", "ConfigID", "Fecha", "Descripcion", "Horas"];
+const HEADERS_SERVICIOS = ["ID", "EmpresaID", "ConfigID", "Fecha", "Descripcion", "Horas", "UsuarioID"];
+const HEADERS_ASIGNACIONES = ["ID", "UsuarioID", "EmpresaID", "Estado"];
 const HEADERS_CIERRES = [
   "ID", "EmpresaID", "ConfigID", "Desde", "Hasta",
   "TotalHoras", "HorasNormales", "HorasExtra", "TotalCobro",
@@ -76,6 +108,7 @@ function doPost(e) {
       case 'save_cierre': return saveCierreQuincenal(payload);
       case 'cerrar_cierre': return cerrarCierreQuincenal(payload);
       case 'calcular_cierre': return calcularCierre(payload);
+      case 'save_assignments': return saveAssignments(payload);
 
       default: return errorResponse('Acción no reconocida: ' + action);
     }
@@ -102,6 +135,9 @@ function doGet(e) {
       case 'get_servicios': return getServiciosReportados(e);
       // ── Cierres ──
       case 'get_cierres': return getCierresQuincenales(e);
+      // ── Asignaciones ──
+      case 'get_assigned_clients': return getAssignedClients(e);
+      case 'get_user_assignments': return getUserAssignments(e);
       default: return errorResponse('Acción no reconocida');
     }
   } catch (error) {
@@ -133,10 +169,21 @@ function registerUser(payload) {
     }
     const isFirst = data.length <= 1;
     const role = isFirst ? 'Admin' : 'Usuario';
-    const nextId = sheet.getLastRow();
     const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
 
-    sheet.appendRow([nextId, payload.email, hashPassword(payload.password), payload.nombre, role, fecha, '', '', 'activo']);
+    const userObj = {
+      "ID": nextId,
+      "Email": payload.email,
+      "Contraseña (Hash)": hashPassword(payload.password),
+      "Nombre": payload.nombre,
+      "Rol": role,
+      "Fecha Registro": fecha,
+      "Gmail_SenderEmail": '',
+      "Gmail_AppPassword": '',
+      "Estado": 'activo'
+    };
+
+    _addRowByHeaders(sheet, userObj);
     return successResponse('Usuario registrado', { id: nextId, email: payload.email, nombre: payload.nombre, role });
   } catch (err) { return errorResponse('Error al registrar: ' + err); }
 }
@@ -153,10 +200,22 @@ function createUserAdmin(payload) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][1] === payload.email) return errorResponse('El email ya existe');
     }
-    const nextId = sheet.getLastRow();
+    const nextId = _getNextId(sheet);
     const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
 
-    sheet.appendRow([nextId, payload.email, hashPassword(payload.password), payload.nombre, payload.role, fecha, '', '', 'activo']);
+    const userObj = {
+      "ID": nextId,
+      "Email": payload.email,
+      "Contraseña (Hash)": hashPassword(payload.password),
+      "Nombre": payload.nombre,
+      "Rol": payload.role,
+      "Fecha Registro": fecha,
+      "Gmail_SenderEmail": '',
+      "Gmail_AppPassword": '',
+      "Estado": 'activo'
+    };
+
+    _addRowByHeaders(sheet, userObj);
     return successResponse('Usuario creado', { id: nextId, nombre: payload.nombre, role: payload.role });
   } catch (err) { return errorResponse('Error al crear usuario: ' + err); }
 }
@@ -168,9 +227,18 @@ function getUsersList(payload) {
     if (!sheet) return successResponse('Sin usuarios', { users: [] });
 
     const data = sheet.getDataRange().getValues();
+    const headers = data[0];
     const users = [];
     for (let i = 1; i < data.length; i++) {
-      users.push({ id: data[i][0], email: data[i][1], nombre: data[i][3], role: data[i][4], fecha: data[i][5], estado: data[i][8] });
+      const u = _getRowObject(headers, data[i]);
+      users.push({
+        id: u['ID'],
+        email: u['Email'],
+        nombre: u['Nombre'],
+        role: u['Rol'],
+        fecha: u['Fecha Registro'],
+        estado: u['Estado']
+      });
     }
     return successResponse('Usuarios obtenidos', { users });
   } catch (err) { return errorResponse('Error: ' + err); }
@@ -197,14 +265,21 @@ function loginUser(payload) {
     if (!sheet) return errorResponse('No hay usuarios registrados.');
 
     const data = sheet.getDataRange().getValues();
+    const headers = data[0];
     const hash = hashPassword(payload.password);
 
     for (let i = 1; i < data.length; i++) {
-      if (data[i][1] === payload.email && data[i][2] === hash) {
+      const u = _getRowObject(headers, data[i]);
+      if (String(u['Email']).trim().toLowerCase() === String(payload.email).trim().toLowerCase() && u['Contraseña (Hash)'] === hash) {
         return successResponse('Login exitoso', {
-          id: data[i][0], email: data[i][1], nombre: data[i][3],
-          role: data[i].length > 4 ? data[i][4] : 'Usuario',
-          config: { gmailSenderEmail: data[i][6] || '', gmailAppPassword: data[i][7] || '' }
+          id: u['ID'],
+          email: u['Email'],
+          nombre: u['Nombre'],
+          role: u['Rol'] || 'Usuario',
+          config: {
+            gmailSenderEmail: u['Gmail_SenderEmail'] || '',
+            gmailAppPassword: u['Gmail_AppPassword'] || ''
+          }
         });
       }
     }
@@ -264,7 +339,8 @@ function initializeDatabase() {
       // ── Nuevas ──
       { name: SHEET_EMP_CONFIG, headers: HEADERS_EMP_CONFIG },
       { name: SHEET_SERVICIOS, headers: HEADERS_SERVICIOS },
-      { name: SHEET_CIERRES, headers: HEADERS_CIERRES }
+      { name: SHEET_CIERRES, headers: HEADERS_CIERRES },
+      { name: SHEET_ASIGNACIONES, headers: HEADERS_ASIGNACIONES }
     ];
 
     const created = [];
@@ -276,6 +352,15 @@ function initializeDatabase() {
         created.push(cfg.name);
       } else {
         sheet = ss.getSheetByName(cfg.name);
+        // Verificar columnas faltantes sin alterar orden existente
+        const currentHeaders = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+        const missingHeaders = cfg.headers.filter(h => !currentHeaders.includes(h));
+
+        if (missingHeaders.length > 0) {
+          const startCol = sheet.getLastColumn() + 1;
+          sheet.getRange(1, startCol, 1, missingHeaders.length).setValues([missingHeaders]);
+          console.log(`Columnas añadidas a ${cfg.name}: ${missingHeaders.join(', ')}`);
+        }
       }
       // Estilo header
       const hr = sheet.getRange(1, 1, 1, sheet.getLastColumn());
@@ -300,30 +385,47 @@ function initializeDatabase() {
 // ─────────────────────────────────────────────────────────────
 function saveSession(payload) {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_SESIONES);
-    const nextId = sheet.getLastRow();
-    sheet.appendRow([
-      nextId,
-      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"),
-      payload.hora_inicio || "00:00",
-      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm"),
-      payload.cliente, payload.email, payload.duracion, payload.valor_hora,
-      (payload.duracion * payload.valor_hora).toFixed(2), "Completado"
-    ]);
-    return successResponse('Sesión guardada', { id: nextId });
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_SESIONES);
+    const nextId = _getNextId(sheet);
+    
+    const sessObj = {
+      "ID": nextId,
+      "Fecha": Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"),
+      "Hora Inicio": payload.hora_inicio || "00:00",
+      "Hora Fin": Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm"),
+      "Cliente": payload.cliente,
+      "Email Cliente": payload.email,
+      "Duración (horas)": payload.duracion,
+      "Valor/Hora ($)": payload.valor_hora,
+      "Total ($)": (payload.duracion * payload.valor_hora).toFixed(2),
+      "Estado": "Completado",
+      "UsuarioID": payload.usuarioId || 'Admin'
+    };
+
+    _addRowByHeaders(sheet, sessObj);
+    return successResponse('Sesión guardada', { id: nextId, total: sessObj["Total ($)"] });
   } catch (err) { return errorResponse(err.toString()); }
 }
 
-function getSessions() {
+function getSessions(e) {
   try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_SESIONES);
+    const usuarioId = e ? e.parameter.usuarioId : null;
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_SESIONES);
+    if (!sheet) return successResponse('Sin sesiones', { sessions: [] });
+    
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const sessions = [];
+    
     for (let i = 1; i < data.length; i++) {
-      const obj = {};
-      for (let j = 0; j < headers.length; j++) obj[headers[j]] = data[i][j];
-      sessions.push(obj);
+      const row = data[i];
+      const rowUserId = String(row[10]); // Columna UsuarioID (index 10)
+      
+      if (usuarioId && rowUserId !== String(usuarioId)) continue;
+      
+      sessions.push(_rowToObj(headers, row));
     }
     return successResponse('Sesiones', { sessions });
   } catch (err) { return errorResponse(err.toString()); }
@@ -332,7 +434,7 @@ function getSessions() {
 function addClient(payload) {
   try {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CLIENTES);
-    const nextId = sheet.getLastRow();
+    const nextId = _getNextId(sheet);
     sheet.appendRow([nextId, payload.name, payload.email, payload.phone, payload.address, new Date(), "Activo"]);
     return successResponse('Cliente creado', { id: nextId, name: payload.name });
   } catch (err) { return errorResponse(err.toString()); }
@@ -429,25 +531,22 @@ function saveEmpresaConfig(payload) {
     }
 
     // Nueva configuración
-    const nextId = sheet.getLastRow();
-    const newRow = [
-      nextId,
-      empresaId,
-      desdeStr,        // VigenteDesde como string
-      '',              // VigenteHasta
-      tipoCobro,
-      tipoCobro === 'FIJO' ? (parseFloat(valorFijo) || 0) : 0,
-      tipoCobro === 'POR_HORAS' ? (parseFloat(horasIncluidas) || 0) : 0,
-      tipoCobro === 'POR_HORAS' ? (parseFloat(valorHora) || 0) : 0,
-      tipoCobro === 'POR_HORAS' ? (parseFloat(valorHoraExtra) || 0) : 0,
-      'Activa',
-      observaciones || ''
-    ];
-    sheet.appendRow(newRow);
+    const nextId = _getNextId(sheet);
+    const configObj = {
+      "ID": nextId,
+      "EmpresaID": empresaId,
+      "VigenteDesde": desdeStr,
+      "VigenteHasta": '',
+      "TipoCobro": tipoCobro,
+      "ValorFijoQuincenal": tipoCobro === 'FIJO' ? (parseFloat(valorFijo) || 0) : 0,
+      "HorasIncluidas": tipoCobro === 'POR_HORAS' ? (parseFloat(horasIncluidas) || 0) : 0,
+      "ValorHora": tipoCobro === 'POR_HORAS' ? (parseFloat(valorHora) || 0) : 0,
+      "ValorHoraExtra": tipoCobro === 'POR_HORAS' ? (parseFloat(valorHoraExtra) || 0) : 0,
+      "Estado": 'Activa',
+      "Observaciones": observaciones || ''
+    };
 
-    // Forzar formato texto en la celda VigenteDesde de la nueva fila
-    const lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow, 3).setNumberFormat('@STRING@').setValue(desdeStr);  // col 3 = VigenteDesde
+    _addRowByHeaders(sheet, configObj);
 
     return successResponse('Configuración de contrato guardada', { id: nextId });
   } catch (err) { return errorResponse('Error al guardar contrato: ' + err); }
@@ -513,7 +612,7 @@ function getEmpresaConfigHistory(e) {
  */
 function saveServicioReportado(payload) {
   try {
-    const { empresaId, fecha, descripcion, horas } = payload;
+    const { empresaId, fecha, descripcion, horas, usuarioId } = payload;
     if (!empresaId || !fecha || !descripcion || horas === undefined)
       return errorResponse('Faltan datos: empresaId, fecha, descripcion, horas');
 
@@ -526,15 +625,120 @@ function saveServicioReportado(payload) {
 
     const configId = _getConfigIdForDate(ss, empresaId, fechaStr);
 
-    const nextId = sheet.getLastRow();
-    sheet.appendRow([nextId, empresaId, configId, fechaStr, descripcion, parseFloat(horas) || 0]);
+    const nextId = _getNextId(sheet);
+    const srvObj = {
+      "ID": nextId,
+      "EmpresaID": empresaId,
+      "ConfigID": configId,
+      "Fecha": fechaStr,
+      "Descripcion": descripcion,
+      "Horas": parseFloat(horas) || 0,
+      "UsuarioID": usuarioId || 'Admin'
+    };
 
-    // Forzar texto en la celda de fecha
-    const lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow, 4).setNumberFormat('@STRING@').setValue(fechaStr);  // col 4 = Fecha
+    _addRowByHeaders(sheet, srvObj);
 
     return successResponse('Servicio registrado', { id: nextId });
   } catch (err) { return errorResponse('Error al registrar servicio: ' + err); }
+}
+
+/**
+ * POST: Guarda asignaciones de un empleado.
+ */
+function saveAssignments(payload) {
+  try {
+    const { usuarioId, empresaIds } = payload;
+    if (!usuarioId) return errorResponse('usuarioId requerido');
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = ss.getSheetByName(SHEET_ASIGNACIONES);
+    if (!sheet) { initializeDatabase(); sheet = ss.getSheetByName(SHEET_ASIGNACIONES); }
+
+    const data = sheet.getDataRange().getValues();
+
+    // Para simplificar: desactivamos asignaciones previas del usuario y creamos nuevas
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][1]) === String(usuarioId)) {
+        sheet.getRange(i + 1, 4).setValue('Inactivo');
+      }
+    }
+
+    if (empresaIds && empresaIds.length > 0) {
+      empresaIds.forEach(empId => {
+        const nextId = _getNextId(sheet);
+        _addRowByHeaders(sheet, {
+          "ID": nextId,
+          "UsuarioID": usuarioId,
+          "EmpresaID": empId,
+          "Estado": 'Activo'
+        });
+      });
+    }
+
+    return successResponse('Asignaciones actualizadas');
+  } catch (err) { return errorResponse('Error: ' + err); }
+}
+
+/**
+ * GET: Obtiene IDs de empresas asignadas a un usuario.
+ */
+function getUserAssignments(e) {
+  try {
+    const usuarioId = e.parameter.usuarioId;
+    if (!usuarioId) return errorResponse('usuarioId requerido');
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_ASIGNACIONES);
+    if (!sheet) return successResponse('Sin asignaciones', { empresaIds: [] });
+
+    const data = sheet.getDataRange().getValues();
+    const empresaIds = [];
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][1]) === String(usuarioId) && String(data[i][3]) === 'Activo') {
+        empresaIds.push(String(data[i][2]));
+      }
+    }
+
+    return successResponse('Asignaciones obtenidas', { empresaIds });
+  } catch (err) { return errorResponse('Error: ' + err); }
+}
+
+/**
+ * GET: Obtiene clientes asignados a un empleado.
+ */
+function getAssignedClients(e) {
+  try {
+    const usuarioId = e.parameter.usuarioId;
+    if (!usuarioId) return errorResponse('usuarioId requerido');
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const asigSheet = ss.getSheetByName(SHEET_ASIGNACIONES);
+    const cliSheet = ss.getSheetByName(SHEET_CLIENTES);
+
+    if (!asigSheet || !cliSheet) return successResponse('Sin asignaciones', { clients: [] });
+
+    const asigVals = asigSheet.getDataRange().getValues();
+    const assignedEmpIds = [];
+    for (let i = 1; i < asigVals.length; i++) {
+      if (String(asigVals[i][1]) === String(usuarioId) && String(asigVals[i][3]) === 'Activo') {
+        assignedEmpIds.push(String(asigVals[i][2]));
+      }
+    }
+
+    const cliData = cliSheet.getDataRange().getValues();
+    const headers = cliData[0];
+    const clients = [];
+
+    for (let i = 1; i < cliData.length; i++) {
+      if (assignedEmpIds.includes(String(cliData[i][0]))) {
+        const obj = {};
+        for (let j = 0; j < headers.length; j++) obj[headers[j]] = cliData[i][j];
+        clients.push(obj);
+      }
+    }
+
+    return successResponse('Clientes asignados obtenidos', { clients });
+  } catch (err) { return errorResponse('Error: ' + err); }
 }
 
 /**
@@ -561,6 +765,7 @@ function getServiciosReportados(e) {
     const empresaId = e.parameter.empresaId;
     const desde = e.parameter.desde || '';
     const hasta = e.parameter.hasta || '';
+    const usuarioId = e.parameter.usuarioId; // Nuevo: Para filtrar por empleado
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEET_SERVICIOS);
@@ -574,14 +779,19 @@ function getServiciosReportados(e) {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const rowEmpId = String(row[1]);
-      // Normalizar fecha: puede ser Date object o string
+      const rowUserId = String(row[6]); // Columna UsuarioID (index 6)
+      
+      // Normalizar fecha
       const rawFecha = row[3];
       const rowFecha = rawFecha instanceof Date
         ? Utilities.formatDate(rawFecha, tz, 'yyyy-MM-dd')
         : String(rawFecha).substring(0, 10);
+      
       if (empresaId && rowEmpId !== String(empresaId)) continue;
       if (desde && rowFecha < desde) continue;
       if (hasta && rowFecha > hasta) continue;
+      if (usuarioId && rowUserId !== String(usuarioId)) continue; // Filtrado por rol
+
       servicios.push(_rowToObj(headers, row));
     }
     return successResponse('Servicios obtenidos', { servicios });
@@ -597,12 +807,12 @@ function getServiciosReportados(e) {
  */
 function calcularCierre(payload) {
   try {
-    const { empresaId, desde, hasta } = payload;
+    const { empresaId, desde, hasta, usuarioId } = payload;
     if (!empresaId || !desde || !hasta)
       return errorResponse('Faltan datos: empresaId, desde, hasta');
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const result = _computeCierre(ss, empresaId, desde, hasta);
+    const result = _computeCierre(ss, empresaId, desde, hasta, usuarioId);
     if (result.error) return errorResponse(result.error);
 
     return successResponse('Cálculo de cierre', result);
@@ -614,39 +824,36 @@ function calcularCierre(payload) {
  */
 function saveCierreQuincenal(payload) {
   try {
-    const { empresaId, desde, hasta, nombreEmpresa } = payload;
+    const { empresaId, desde, hasta, nombreEmpresa, usuarioId } = payload;
     if (!empresaId || !desde || !hasta)
       return errorResponse('Faltan datos: empresaId, desde, hasta');
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const calc = _computeCierre(ss, empresaId, desde, hasta);
+    const calc = _computeCierre(ss, empresaId, desde, hasta, usuarioId);
     if (calc.error) return errorResponse(calc.error);
 
     const sheet = ss.getSheetByName(SHEET_CIERRES);
     if (!sheet) return errorResponse('Hoja Cierres_Quincenales no existe. Inicializa la BD.');
 
-    const nextId = sheet.getLastRow();
-    const newCierreRow = [
-      nextId,
-      empresaId,
-      calc.configId,
-      desde,
-      hasta,
-      calc.totalHoras,
-      calc.horasNormales,
-      calc.horasExtra,
-      calc.totalCobro,
-      'Abierto',
-      '',          // FechaCierre
-      nombreEmpresa || '',
-      calc.tipoCobro  // TipoCobro
-    ];
-    sheet.appendRow(newCierreRow);
+    const nextId = _getNextId(sheet);
+    const cierreObj = {
+      "ID": nextId,
+      "EmpresaID": empresaId,
+      "ConfigID": calc.configId,
+      "Desde": desde,
+      "Hasta": hasta,
+      "TotalHoras": calc.totalHoras,
+      "HorasNormales": calc.horasNormales,
+      "HorasExtra": calc.horasExtra,
+      "TotalCobro": calc.totalCobro,
+      "Estado": 'Abierto',
+      "FechaCierre": '',
+      "NombreEmpresa": nombreEmpresa || '',
+      "TipoCobro": calc.tipoCobro,
+      "UsuarioID": usuarioId || 'Admin'
+    };
 
-    // Forzar texto en las celdas de fecha Desde/Hasta
-    const lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow, 4).setNumberFormat('@STRING@').setValue(desde);  // col 4 = Desde
-    sheet.getRange(lastRow, 5).setNumberFormat('@STRING@').setValue(hasta);  // col 5 = Hasta
+    _addRowByHeaders(sheet, cierreObj);
 
     return successResponse('Cierre quincenal guardado', { id: nextId, ...calc });
   } catch (err) { return errorResponse('Error al guardar cierre: ' + err); }
@@ -680,6 +887,7 @@ function cerrarCierreQuincenal(payload) {
 function getCierresQuincenales(e) {
   try {
     const empresaId = e.parameter.empresaId;
+    const usuarioId = e.parameter.usuarioId;
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEET_CIERRES);
     if (!sheet) return successResponse('Sin cierres', { cierres: [] });
@@ -690,6 +898,7 @@ function getCierresQuincenales(e) {
 
     for (let i = 1; i < data.length; i++) {
       if (empresaId && String(data[i][1]) !== String(empresaId)) continue;
+      if (usuarioId && String(data[i][13] || data[i][headers.indexOf('UsuarioID')]) !== String(usuarioId)) continue;
       cierres.push(_rowToObj(headers, data[i]));
     }
     return successResponse('Cierres obtenidos', { cierres });
@@ -713,6 +922,25 @@ function _rowToObj(headers, row) {
       : val;
   }
   return obj;
+}
+
+/**
+ * Inserta una fila en la hoja basándose en los nombres de los encabezados.
+ * Esto evita errores si las columnas están en desorden o se añadieron nuevas.
+ */
+function _addRowByHeaders(sheet, dataObj) {
+  const headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+  const newRow = new Array(headers.length).fill("");
+  
+  headers.forEach((header, index) => {
+    const key = String(header).trim();
+    if (dataObj.hasOwnProperty(key)) {
+      newRow[index] = dataObj[key];
+    }
+  });
+  
+  sheet.appendRow(newRow);
+  return newRow;
 }
 
 /**
@@ -743,7 +971,7 @@ function _getConfigIdForDate(ss, empresaId, fecha) {
  * Calcula totales de un cierre sin persistirlo.
  * Retorna { configId, totalHoras, horasNormales, horasExtra, totalCobro, tipoCobro, ... }
  */
-function _computeCierre(ss, empresaId, desde, hasta) {
+function _computeCierre(ss, empresaId, desde, hasta, usuarioId = null) {
   // 1. Obtener configuración vigente (usar la del inicio del período)
   const cfgSheet = ss.getSheetByName(SHEET_EMP_CONFIG);
   if (!cfgSheet) return { error: 'Hoja Empresa_Config no existe' };
@@ -791,6 +1019,9 @@ function _computeCierre(ss, empresaId, desde, hasta) {
     const srvData = srvSheet.getDataRange().getValues();
     for (let i = 1; i < srvData.length; i++) {
       if (String(srvData[i][1]) !== String(empresaId)) continue;
+      const rowUserId = String(srvData[i][6]); // Columna UsuarioID
+      if (usuarioId && rowUserId !== String(usuarioId)) continue;
+
       const rawFecha = srvData[i][3];
       const f = rawFecha instanceof Date
         ? Utilities.formatDate(rawFecha, tz, 'yyyy-MM-dd')

@@ -37,22 +37,22 @@
             <h1 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-12">TimeBill Pro de Techfix solutions
             </h1>
             <nav class="flex flex-col space-y-2">
-                <a href="#dashboard"
+                <a href="#dashboard" id="nav-dashboard"
                     class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
                     <span>📊</span>
                     <span>Panel de Control</span>
                 </a>
-                <a href="#clients"
+                <a href="#clients" id="nav-clients"
                     class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
                     <span>👥</span>
                     <span>Clientes</span>
                 </a>
-                <a href="#reporte"
+                <a href="#reporte" id="nav-reporte"
                     class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
                     <span>🕐</span>
                     <span>Reporte de Horas</span>
                 </a>
-                <a href="#contratos"
+                <a href="#contratos" id="nav-contratos"
                     class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
                     <span>📄</span>
                     <span>Contratos</span>
@@ -62,7 +62,7 @@
                     <span>🛡️</span>
                     <span>Usuarios</span>
                 </a>
-                <a href="#settings"
+                <a href="#settings" id="nav-settings"
                     class="nav-item text-lg font-medium p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-300 transition-colors duration-200 dark:hover:bg-zinc-700">
                     <span>⚙️</span>
                     <span>Configuración</span>
@@ -480,97 +480,68 @@
         <p>Esta aplicación está optimizada para la vista de escritorio. Por favor, abre en una pantalla más grande.</p>
     </div>
 
-    <!-- User Modal (New) -->
-    <div id="user-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden opacity-0 transition-opacity duration-300">
+
+    <!-- Login Screen (Futuristic Neon) -->
+    <div id="login-modal" class="fixed inset-0 z-[100] login-bg flex items-center justify-center p-4 overflow-hidden">
+        <!-- Decorative Glows -->
         <div
-            class="modal-content bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-md p-8 transform scale-95 transition-transform duration-300 relative">
-            <button id="cancel-user-modal"
-                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl">&times;</button>
-            <h3 id="user-modal-title" class="text-2xl font-bold text-gray-800 dark:text-zinc-100 mb-6">Nuevo Usuario
-            </h3>
-
-            <form id="user-form" class="space-y-4">
-                <input type="hidden" id="user-id">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Nombre
-                        Completo</label>
-                    <input type="text" id="user-name" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Email</label>
-                    <input type="email" id="user-email" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Rol</label>
-                    <select id="user-role" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <option value="Usuario">Usuario Estándar</option>
-                        <option value="Admin">Administrador</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Contraseña</label>
-                    <input type="password" id="user-password" required minlength="6"
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
-                </div>
-
-                <div class="flex space-x-3 pt-4">
-                    <button type="button" id="close-user-modal-btn"
-                        class="flex-1 py-3 bg-gray-200 dark:bg-zinc-600 text-gray-800 dark:text-zinc-200 rounded-lg hover:bg-gray-300 dark:hover:bg-zinc-500 transition font-semibold">Cancelar</button>
-                    <button type="submit"
-                        class="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow-lg">Guardar
-                        Usuario</button>
-                </div>
-            </form>
+            class="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] neon-glow-indigo rounded-full opacity-50 blur-3xl animate-pulse">
         </div>
-    </div>
+        <div class="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] neon-glow-indigo rounded-full opacity-50 blur-3xl animate-pulse"
+            style="animation-delay: 2s"></div>
 
-    <!-- Login Modal -->
-    <div id="login-modal"
-        class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-        <div
-            class="modal-content bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform scale-95 dark:bg-zinc-700">
-            <h2 class="text-2xl font-bold text-indigo-800 dark:text-indigo-300 mb-2 text-center">🔐 TimeBill Pro</h2>
-            <p class="text-gray-600 dark:text-zinc-300 mb-6 text-center text-sm">Inicia sesión en tu cuenta</p>
+        <div class="glass-card p-8 md:p-12 rounded-3xl w-full max-w-lg relative z-10 neon-border animate-float">
+            <div class="text-center mb-10">
+                <div class="mb-6 inline-block p-4 bg-indigo-900/40 rounded-2xl neon-border">
+                    <img src="assets/images/logo.jpg" alt="Logo" class="h-16 w-auto rounded-xl">
+                </div>
+                <h2 class="text-4xl font-bold text-white neon-text mb-2 tracking-tight">TimeBill Pro</h2>
+                <p class="text-indigo-200/70 text-sm tracking-widest uppercase">Sistema de Gestión TechFix</p>
+            </div>
 
             <!-- Login Form -->
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-2">📧 Email</label>
-                    <input type="email" id="login-email" placeholder="tu_email@gmail.com" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            <form id="login-form" class="space-y-6">
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-indigo-300 uppercase tracking-wider ml-1">Email
+                        Corporativo</label>
+                    <div class="relative group">
+                        <span
+                            class="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-cyan-400 transition-colors">📧</span>
+                        <input type="email" id="login-email" placeholder="nombre@techfix.com" required
+                            class="w-full bg-slate-900/50 border border-indigo-500/30 p-4 pl-12 rounded-2xl text-white placeholder-indigo-300/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all">
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-zinc-200 mb-2">🔑 Contraseña</label>
-                    <input type="password" id="login-password" placeholder="Tu contraseña segura" required
-                        class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                <div class="space-y-2">
+                    <label
+                        class="block text-xs font-semibold text-indigo-300 uppercase tracking-wider ml-1">Contraseña</label>
+                    <div class="relative group">
+                        <span
+                            class="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-cyan-400 transition-colors">🔑</span>
+                        <input type="password" id="login-password" placeholder="••••••••" required
+                            class="w-full bg-slate-900/50 border border-indigo-500/30 p-4 pl-12 rounded-2xl text-white placeholder-indigo-300/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all">
+                    </div>
                 </div>
 
                 <div id="login-error"
-                    class="hidden p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg text-sm">
+                    class="hidden bg-red-500/20 border border-red-500/50 text-red-200 p-4 rounded-xl text-sm text-center">
+                    <!-- Error message injected here -->
                 </div>
 
                 <button type="submit" id="login-submit-button"
-                    class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
-                    Iniciar Sesión
+                    class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl neon-button transition-all text-lg tracking-wide flex items-center justify-center">
+                    <span>ACCEDER AL SISTEMA</span>
+                    <span class="ml-2">🚀</span>
                 </button>
-
-                <!-- Public registration disabled. Users are created by Admins only. -->
             </form>
 
-            <!-- Register Form Removed -->
-
-            <p class="text-xs text-gray-400 dark:text-zinc-500 mt-6 text-center">
-                ℹ️ Datos guardados de forma segura en Google Sheets.<br>
-                Tu contraseña nunca se almacena sin protección.
-            </p>
+            <div class="mt-8 text-center">
+                <p class="text-indigo-300/40 text-[10px] uppercase tracking-[0.2em]">Tecnología de Vanguardia por
+                    TechFix Solutions</p>
+            </div>
         </div>
     </div>
+   
 
     <!-- Client Form Modal -->
     <div id="client-modal"
@@ -647,6 +618,7 @@
                     <select id="user-role" required
                         class="w-full p-3 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         <option value="Usuario">Usuario Estándar</option>
+                        <option value="Empleado">Empleado (solo reportes)</option>
                         <option value="Admin">Administrador</option>
                     </select>
                 </div>
@@ -663,6 +635,32 @@
                     <button type="submit"
                         class="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow-lg">Guardar
                         Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Modal: Asignación de Empresas -->
+    <div id="asignacion-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 hidden transition-opacity duration-300">
+        <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-md p-8 relative transform scale-100">
+            <button id="close-asignacion-modal"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl">&times;</button>
+            <h3 class="text-2xl font-bold text-gray-800 dark:text-zinc-100 mb-2">🏢 Asignar Clientes</h3>
+            <p id="asignacion-usuario-nombre" class="text-indigo-600 dark:text-indigo-400 font-semibold mb-6 text-sm">
+                Usuario: -</p>
+
+            <form id="asignacion-form">
+                <input type="hidden" id="asignacion-usuario-id">
+                <div class="max-h-64 overflow-y-auto mb-6 pr-2 space-y-1 custom-scrollbar" id="asignacion-lista-clientes">
+                    <!-- Clientes cargados por JS con checkboxes -->
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="button" id="cancel-asignacion-modal"
+                        class="flex-1 py-3 bg-gray-200 dark:bg-zinc-600 text-gray-800 dark:text-zinc-200 rounded-lg hover:bg-gray-300 transition font-semibold">Cancelar</button>
+                    <button type="submit"
+                        class="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow-lg">Guardar
+                        Asignación</button>
                 </div>
             </form>
         </div>
@@ -833,6 +831,35 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: Asignación de Clientes a Empleados -->
+    <div id="asignacion-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+        <div
+            class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-md p-8 relative modal-content transform scale-95 transition-transform duration-300">
+            <button id="cancel-asignacion-modal"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl">&times;</button>
+            <h3 class="text-2xl font-bold text-gray-800 dark:text-zinc-100 mb-2">🔗 Asignar Clientes</h3>
+            <p id="asignacion-usuario-nombre" class="text-sm text-indigo-600 dark:text-indigo-400 font-semibold mb-5">
+            </p>
+
+            <form id="asignacion-form" class="space-y-4">
+                <input type="hidden" id="asignacion-usuario-id">
+                <div class="max-h-60 overflow-y-auto border border-gray-100 dark:border-zinc-700 rounded-lg p-2 space-y-2"
+                    id="asignacion-lista-clientes">
+                    <!-- Checkboxes populated by JS -->
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                    <button type="button" id="close-asignacion-modal"
+                        class="flex-1 py-3 bg-gray-200 dark:bg-zinc-600 text-gray-800 dark:text-zinc-200 rounded-lg hover:bg-gray-300 transition font-semibold">Cancelar</button>
+                    <button type="submit"
+                        class="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow-lg">Guardar
+                        Asignaciones</button>
+                </div>
+            </form>
         </div>
     </div>
 

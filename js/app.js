@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const appState = {
         clients: [],
+        users: [],
         timer: {
             interval: null,
             startTime: 0,
@@ -85,6 +86,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
+    async function apiPost(payload) {
+        const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
+            method: 'POST',
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+        });
+        return await response.json();
+    }
+
     function renderClients() {
         elements.clientsTableBody.innerHTML = '';
         elements.clientSelect.innerHTML = '<option value="">Ningún cliente seleccionado</option>';
@@ -142,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td class="p-4"><span class="px-2 py-1 rounded text-xs font-semibold ${user.role === 'Admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">${user.role}</span></td>
              <td class="p-4 text-gray-600 dark:text-zinc-300">${user.estado || 'Activo'}</td>
             <td class="p-4 text-right">
+                <button class="assign-clients-btn text-indigo-600 hover:text-indigo-800 mr-3" data-id="${user.id}" data-nombre="${user.nombre}">Asignar</button>
                 <button class="delete-user-btn text-red-600 hover:text-red-800" data-id="${user.id}">Eliminar</button>
             </td>
         `;
@@ -151,16 +162,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleUserModal(show = false) {
+        if (!elements.userModal) return;
         if (show) {
             elements.userForm.reset();
-            $('#user-modal-title').textContent = 'Nuevo Usuario';
+            const title = $('#user-modal-title');
+            if (title) title.textContent = 'Nuevo Usuario';
+            
             elements.userModal.classList.remove('hidden');
             setTimeout(() => {
-                elements.userModal.querySelector('.modal-content').classList.remove('scale-95');
+                const content = elements.userModal.querySelector('.modal-content');
+                if (content) content.classList.remove('scale-95');
                 elements.userModal.classList.remove('opacity-0');
             }, 10);
         } else {
-            elements.userModal.querySelector('.modal-content').classList.add('scale-95');
+            const content = elements.userModal.querySelector('.modal-content');
+            if (content) content.classList.add('scale-95');
             elements.userModal.classList.add('opacity-0');
             setTimeout(() => elements.userModal.classList.add('hidden'), 300);
         }
@@ -169,19 +185,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load Users
     async function loadUsersFromGoogleSheets() {
         try {
-            const url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_users`; // Not exactly standard GET in this script but if changed to POST or handled in doGet
-            // Since doGet doesn't handle get_users in previous version, we used POST for everything mostly or consistent GET.
-            // Wait, I added get_users to doPost in GAS but not doGet?
-            // Checking GAS: `case 'get_users': return getUsersList(payload);` in doPost.
-            // So I must use POST.
+            const role = sessionStorage.getItem('userRole');
+            if (role !== 'Admin') return;
 
-            const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
-                method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({ action: 'get_users' })
-            });
-
-            const result = await response.json();
+            showToast('⏳ Cargando usuarios...');
+            // get_users está en doPost en este backend
+            const result = await apiPost({ action: 'get_users' });
 
             if (result.status === 'success' && result.data.users) {
                 appState.users = result.data.users;
@@ -189,32 +198,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderUsers();
             } else {
                 console.warn('⚠️ No se pudieron cargar usuarios');
+                renderUsers();
             }
         } catch (error) {
             console.error('❌ Error al cargar usuarios:', error);
+            showToast('❌ Error de conexión al cargar usuarios');
+            renderUsers();
         }
     }
 
     async function createUserViaSheets(userData) {
         try {
             showToast('⏳ Creando usuario...');
-            const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
-                method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({
-                    action: 'create_user',
-                    nombre: userData.nombre,
-                    email: userData.email,
-                    password: userData.password,
-                    role: userData.role
-                })
+            const result = await apiPost({
+                action: 'create_user',
+                ...userData
             });
-
-            const result = await response.json();
 
             if (result.status === 'success') {
                 showToast('✅ Usuario creado exitosamente');
-                loadUsersFromGoogleSheets(); // Reload list
+                await loadUsersFromGoogleSheets();
                 return true;
             } else {
                 showToast(`❌ Error: ${result.message}`);
@@ -232,23 +235,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             showToast('⏳ Eliminando usuario...');
-            const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
-                method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({
-                    action: 'delete_user',
-                    id: userId
-                })
+            const result = await apiPost({
+                action: 'delete_user',
+                id: userId
             });
-            const result = await response.json();
             if (result.status === 'success') {
                 showToast('✅ Usuario eliminado');
-                loadUsersFromGoogleSheets();
+                await loadUsersFromGoogleSheets();
+                return true;
             } else {
                 showToast(`❌ Error: ${result.message}`);
+                return false;
             }
         } catch (e) {
             showToast('❌ Error de conexión');
+            return false;
         }
     }
 
@@ -307,6 +308,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function toggleAsignacionModal(show = false, user = null) {
+        const modal = $('#asignacion-modal');
+        if (show && user) {
+            $('#asignacion-usuario-id').value = user.id;
+            $('#asignacion-usuario-nombre').textContent = `Usuario: ${user.nombre}`;
+            renderAsignacionLista(user.id);
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('opacity-100'), 10);
+        } else {
+            modal.classList.remove('opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+    }
+
+    async function renderAsignacionLista(userId) {
+        const container = $('#asignacion-lista-clientes');
+        container.innerHTML = '<p class="text-sm text-center py-4">Cargando...</p>';
+
+        try {
+            // Cargar asignaciones actuales del usuario
+            const assignedRes = await fetch(`${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_user_assignments&usuarioId=${userId}`);
+            const assignedData = await assignedRes.json();
+            const existingEmpIds = assignedData.status === 'success' ? assignedData.data.empresaIds.map(id => String(id)) : [];
+
+            if (appState.clients.length === 0) await loadClientsFromGoogleSheets();
+
+            container.innerHTML = appState.clients.map(client => {
+                const isChecked = existingEmpIds.includes(String(client.id));
+                return `
+                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-zinc-700 rounded cursor-pointer">
+                    <input type="checkbox" name="empresa-asig" value="${client.id}" 
+                        class="form-checkbox h-5 w-5 text-indigo-600" ${isChecked ? 'checked' : ''}>
+                    <span class="text-gray-700 dark:text-zinc-200">${client.name}</span>
+                </label>
+            `;
+            }).join('');
+        } catch (err) {
+            container.innerHTML = '<p class="text-sm text-red-500">Error al cargar clientes o asignaciones</p>';
+        }
+    }
     function formatTime(ms) {
         const totalSeconds = Math.floor(ms / 1000);
         const hours = Math.floor(totalSeconds / 3600);
@@ -404,7 +445,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 email: sessionData.client.email,
                 duracion: sessionData.hours,
                 valor_hora: sessionData.rate,
-                hora_inicio: sessionData.startTime || new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+                hora_inicio: sessionData.startTime || new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+                usuarioId: sessionStorage.getItem('userId')
             };
 
             console.log('📤 Enviando sesión a Google Sheets:', payload);
@@ -520,7 +562,14 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function loadClientsFromGoogleSheets() {
         try {
-            const url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_clients`;
+            const role = sessionStorage.getItem('userRole');
+            const userId = sessionStorage.getItem('userId');
+            let url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_clients`;
+
+            if (role === 'Empleado' && userId) {
+                url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_assigned_clients&usuarioId=${userId}`;
+            }
+
             const response = await fetch(url);
             const result = await response.json();
 
@@ -695,198 +744,98 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function loginUser() {
-        const email = elements.loginEmail.value?.trim();
-        const appPassword = elements.loginPassword.value?.trim();
-        const errorDiv = elements.loginError;
+    async function loginUser() {
+        const email = $('#login-email').value?.trim();
+        const password = $('#login-password').value?.trim();
+        const loginError = $('#login-error');
 
-        // Limpiar error anterior
-        errorDiv.classList.add('hidden');
-
-        // Validar campos vacíos
-        if (!email || !appPassword) {
-            errorDiv.textContent = '⚠️ Por favor completa todos los campos.';
-            errorDiv.classList.remove('hidden');
+        if (!email || !password) {
+            loginError.textContent = '⚠️ Ingresa tus credenciales.';
+            loginError.classList.remove('hidden');
             return;
         }
 
         try {
+            const submitBtn = document.querySelector('#login-form button[type="submit"]');
+            const originalBtnContent = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner border-white border-l-transparent w-5 h-5"></div>';
+            loginError.classList.add('hidden');
 
-
-            // Guardar credenciales
-            saveLoginCredentials(email, appPassword);
-
-            // Animar cierre del modal
-            elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                elements.loginModal.classList.add('hidden');
-                elements.appContainer.classList.remove('hidden');
-                showToast(`✅ Bienvenido, ${email}!`);
-                checkDatabaseInitialization();
-            }, 300);
-
-        } catch (error) {
-            console.error('Error de login:', error);
-            errorDiv.textContent = `❌ ${error.message}`;
-            errorDiv.classList.remove('hidden');
-        }
-    }
-
-    // Funciones de Login/Registro con Google Sheets
-    async function loginUserViaSheets(email, password) {
-        const errorDiv = elements.loginError;
-        errorDiv.classList.add('hidden');
-
-        if (!email || !password) {
-            errorDiv.textContent = '⚠️ Por favor completa todos los campos.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        try {
-            elements.loginSubmitButton.disabled = true;
-            showToast('🔍 Validando credenciales...');
-
-            const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
-                method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" }, // Fixed CORS
-                body: JSON.stringify({
-                    action: 'login',
-                    email: email,
-                    password: password
-                })
+            const result = await apiPost({
+                action: 'login',
+                email: email,
+                password: password
             });
 
-            const result = await response.json();
-
             if (result.status === 'success') {
-                sessionStorage.setItem('userEmail', result.data.email);
-                sessionStorage.setItem('userName', result.data.nombre);
-                sessionStorage.setItem('userId', result.data.id);
-                sessionStorage.setItem('userRole', result.data.role); // Save role
-                localStorage.setItem('lastUser', email); // Recordar último usuario
-
-                checkUserRole(result.data.role);
-                if (result.data.role === 'Admin') {
-                    loadUsersFromGoogleSheets();
-                }
-
-
-
-                // Animar cierre
-                elements.loginModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+                const user = result.data;
+                // Guardar sesión Real
+                sessionStorage.setItem('userId', user.id);
+                sessionStorage.setItem('userEmail', user.email);
+                sessionStorage.setItem('userRole', user.role);
+                sessionStorage.setItem('userName', user.nombre);
+                // Inicializar datos tras login exitoso
                 setTimeout(() => {
                     elements.loginModal.classList.add('hidden');
                     elements.appContainer.classList.remove('hidden');
-                    showToast(`✅ ¡Bienvenido, ${result.data.nombre}!`);
-                    checkDatabaseInitialization();
-                }, 300);
+                    elements.appContainer.classList.add('page-transition');
 
-                return true;
+                    checkUserRole(user.role);
+                    if (user.role === 'Admin') loadUsersFromGoogleSheets();
+                    loadClientsFromGoogleSheets();
+                }, 800);
             } else {
-                errorDiv.textContent = `❌ ${result.message}`;
-                errorDiv.classList.remove('hidden');
-                return false;
+                loginError.textContent = `❌ ${result.message}`;
+                loginError.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnContent;
             }
         } catch (error) {
-            console.error('Error al hacer login:', error);
-            errorDiv.textContent = '❌ Error de conexión. Intenta de nuevo.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        } finally {
-            elements.loginSubmitButton.disabled = false;
+            console.error('Login Error:', error);
+            loginError.textContent = '❌ Error de conexión con el servidor.';
+            loginError.classList.remove('hidden');
         }
     }
 
     // Check role and show menu
     function checkUserRole(role) {
-        if (role === 'Admin') {
-            elements.navUsers.classList.remove('hidden');
-        } else {
-            elements.navUsers.classList.add('hidden');
-        }
-    }
+        if (!role) return;
+        const normalizedRole = String(role).trim().toLowerCase();
+        console.log(`🔍 Verificando rol: ${normalizedRole}`);
 
-    async function registerUserViaSheets(name, email, password, passwordConfirm) {
-        const errorDiv = elements.registerError;
-        errorDiv.classList.add('hidden');
+        // Primero resetear visibilidad (mostrar todo por defecto y luego filtrar)
+        $('#nav-dashboard')?.classList.remove('hidden');
+        $('#nav-clients')?.classList.remove('hidden');
+        $('#nav-reporte')?.classList.remove('hidden');
+        $('#nav-contratos')?.classList.remove('hidden');
+        $('#nav-users')?.classList.remove('hidden');
+        $('#nav-settings')?.classList.remove('hidden');
 
-        // Validaciones
-        if (!name || !email || !password || !passwordConfirm) {
-            errorDiv.textContent = '⚠️ Por favor completa todos los campos.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        if (password !== passwordConfirm) {
-            errorDiv.textContent = '⚠️ Las contraseñas no coinciden.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        if (password.length < 8) {
-            errorDiv.textContent = '⚠️ La contraseña debe tener al menos 8 caracteres.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            errorDiv.textContent = '⚠️ Email no válido.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        }
-
-        try {
-            elements.registerSubmitButton.disabled = true;
-            showToast('📝 Creando cuenta...');
-
-            const response = await fetch(GOOGLE_SHEETS_CONFIG.appScriptUrl, {
-                method: 'POST',
-                headers: { "Content-Type": "text/plain;charset=utf-8" }, // Fixed CORS
-                body: JSON.stringify({
-                    action: 'register',
-                    nombre: name,
-                    email: email,
-                    password: password
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showToast('✅ Cuenta creada exitosamente. Inicia sesión.');
-                // Limpiar y cambiar a login
-                elements.registerForm.reset();
-                switchAuthForm('login');
-                return true;
-            } else {
-                errorDiv.textContent = `❌ ${result.message}`;
-                errorDiv.classList.remove('hidden');
-                return false;
+        if (normalizedRole === 'admin') {
+            console.log('✅ Acceso de Administrador concedido');
+            // Admin ve todo
+        } else if (normalizedRole === 'empleado') {
+            // Empleado solo ve Reporte, Dashboard y ahora Contratos (restringido)
+            $('#nav-clients')?.classList.add('hidden');
+            $('#nav-contratos')?.classList.remove('hidden');
+            $('#nav-users')?.classList.add('hidden');
+            $('#nav-settings')?.classList.add('hidden');
+            // Si estaba en una vista prohibida, mover a reporte
+            const currentView = appState.activeView;
+            if (['clients', 'users', 'settings'].includes(currentView)) {
+                switchView('reporte');
             }
-        } catch (error) {
-            console.error('Error al registrar:', error);
-            errorDiv.textContent = '❌ Error de conexión. Intenta de nuevo.';
-            errorDiv.classList.remove('hidden');
-            return false;
-        } finally {
-            elements.registerSubmitButton.disabled = false;
+        } else {
+            // Rol Usuario u otros
+            $('#nav-users')?.classList.add('hidden');
         }
     }
 
-    function switchAuthForm(form) {
-        // Function simplified as only login exists now
-        elements.loginForm.classList.remove('hidden');
-        elements.loginError.classList.add('hidden');
-    }
-
-    // Event listeners para formularios
+    // Event listeners para el Login Neón
     elements.loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const email = elements.loginEmail.value?.trim();
-        const password = elements.loginPassword.value?.trim();
-        loginUserViaSheets(email, password);
+        loginUser();
     });
 
     // Register event listeners removed
@@ -902,10 +851,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ocultar menú admin si estaba visible
         elements.navUsers.classList.add('hidden');
 
-        // Mostrar login form
-        switchAuthForm('login');
-
-        // Mostrar modal
+        // Mostrar login modal
         elements.appContainer.classList.add('hidden');
         elements.loginModal.classList.remove('hidden');
         elements.loginModal.querySelector('.modal-content').classList.remove('opacity-0');
@@ -950,18 +896,89 @@ document.addEventListener('DOMContentLoaded', () => {
             // Agregar nuevo cliente
             const result = await addClientToGoogleSheets(clientData);
             if (result) {
+                // Sincronización exitosa con el backend
                 clientData.id = result.id;
                 appState.clients.push(clientData);
             } else {
-                // Si falla la sincronización, guardar localmente
-                clientData.id = appState.nextClientId++;
-                appState.clients.push(clientData);
+                // Si falla la sincronización, informar al usuario. No guardamos localmente con IDs falsos.
+                showToast('❌ No se pudo sincronizar con la nube. Intenta de nuevo.');
+                return;
             }
         }
 
         renderClients();
         toggleClientModal(false);
     });
+
+    // --- User Management Listeners ---
+    if (elements.addUserButton) elements.addUserButton.addEventListener('click', () => toggleUserModal(true));
+    if (elements.cancelUserModal) elements.cancelUserModal.addEventListener('click', () => toggleUserModal(false));
+    if (elements.closeUserModalBtn) elements.closeUserModalBtn.addEventListener('click', () => toggleUserModal(false));
+
+    if (elements.userForm) {
+        elements.userForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userData = {
+                nombre: $('#user-name').value,
+                email: $('#user-email').value,
+                password: $('#user-password').value,
+                role: $('#user-role').value
+            };
+
+            if (userData.password.length < 6) {
+                alert('La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+
+            const success = await createUserViaSheets(userData);
+            if (success) {
+                toggleUserModal(false);
+            }
+        });
+    }
+
+    if (elements.usersTableBody) {
+        elements.usersTableBody.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('delete-user-btn')) {
+                const userId = e.target.getAttribute('data-id');
+                await deleteUserViaSheets(userId);
+            }
+            if (e.target.classList.contains('assign-clients-btn')) {
+                const userId = e.target.getAttribute('data-id');
+                const userName = e.target.getAttribute('data-nombre');
+                toggleAsignacionModal(true, { id: userId, nombre: userName });
+            }
+        });
+    }
+
+    // --- Assignment Management Listeners ---
+    $('#asignacion-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userId = $('#asignacion-usuario-id').value;
+        const selectedClients = Array.from(document.querySelectorAll('input[name="empresa-asig"]:checked'))
+            .map(cb => cb.value);
+
+        try {
+            showToast('⏳ Guardando asignaciones...');
+            const res = await apiPost({
+                action: 'save_assignments',
+                usuarioId: userId,
+                empresaIds: selectedClients
+            });
+
+            if (res.status === 'success') {
+                showToast('✅ Asignaciones guardadas correctamente');
+                toggleAsignacionModal(false);
+            } else {
+                showToast(`❌ ${res.message}`);
+            }
+        } catch (err) {
+            showToast('❌ Error al guardar asignaciones');
+        }
+    });
+
+    $('#close-asignacion-modal')?.addEventListener('click', () => toggleAsignacionModal(false));
+    $('#cancel-asignacion-modal')?.addEventListener('click', () => toggleAsignacionModal(false));
 
     elements.clientsTableBody.addEventListener('click', e => {
         const target = e.target;
@@ -1012,9 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { client, hours, rate, total } = appState.currentInvoiceData;
         const mensaje = `📄 *CUENTA DE COBRO*\n\n¡Hola ${client.name}!\n\nTe comparto la cuenta de cobro por la sesión de trabajo:\n\n━━━━━━━━━━━━━━━━━━━━\n⏱️ *Duración:* ${hours.toFixed(2)} horas\n💰 *Tarifa:* $${rate.toFixed(2)}/hora\n✅ *TOTAL A PAGAR:* $${total.toFixed(2)}\n━━━━━━━━━━━━━━━━━━━━\n\n¡Gracias por tu confianza en nuestros servicios! 🙏`;
         let numero = String(client.phone).replace(/\D/g, '');
-        if (numero && !numero.startsWith('57')) {
-            numero = '57' + numero;
-        }
+        // Eliminamos el prefijo '57' automático para evitar errores regionales
         if (!numero) {
             showToast('⚠️ No se pudo procesar el número de teléfono.');
             return;
@@ -1041,7 +1056,14 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.loginModal.classList.add('hidden');
             elements.appContainer.classList.remove('hidden');
             switchAuthForm('login'); // Asegurar que muestra form correcto
-            switchView('dashboard');
+            const userRole = sessionStorage.getItem('userRole');
+            checkUserRole(userRole);
+            if (userRole === 'Empleado') {
+                switchView('reporte'); // Redirigir a reporte por defecto
+            } else {
+                switchView('dashboard');
+                if (userRole === 'Admin') loadUsersFromGoogleSheets();
+            }
             loadClientsFromGoogleSheets();
         } else {
             // No está logueado - mostrar login
@@ -1055,42 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Event Listeners for Users Management
-        if (elements.addUserButton) elements.addUserButton.addEventListener('click', () => toggleUserModal(true));
-        if (elements.cancelUserModal) elements.cancelUserModal.addEventListener('click', () => toggleUserModal(false));
-        if (elements.closeUserModalBtn) elements.closeUserModalBtn.addEventListener('click', () => toggleUserModal(false));
-
-        if (elements.userForm) {
-            elements.userForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const userData = {
-                    nombre: $('#user-name').value,
-                    email: $('#user-email').value,
-                    password: $('#user-password').value,
-                    role: $('#user-role').value
-                };
-
-                // Basic validation
-                if (userData.password.length < 6) {
-                    alert('La contraseña debe tener al menos 6 caracteres');
-                    return;
-                }
-
-                const success = await createUserViaSheets(userData);
-                if (success) {
-                    toggleUserModal(false);
-                }
-            });
-        }
-
-        if (elements.usersTableBody) {
-            elements.usersTableBody.addEventListener('click', async (e) => {
-                if (e.target.classList.contains('delete-user-btn')) {
-                    const userId = e.target.getAttribute('data-id');
-                    await deleteUserViaSheets(userId);
-                }
-            });
-        }
+        // Event Listeners for Users Management moved to main listener block
 
         // Verificar estado de inicialización en background (si está logueado)
         if (userEmail) {
@@ -1267,9 +1254,13 @@ document.addEventListener('DOMContentLoaded', () => {
             renderHistorialContratos(res2.data?.history || []);
         } catch (e) { renderHistorialContratos([]); }
 
-        // Cargar cierres
+        // Cierres quincenales
         try {
-            const url3 = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_cierres&empresaId=${client.id}`;
+            const role = sessionStorage.getItem('userRole');
+            const userId = sessionStorage.getItem('userId');
+            let url3 = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_cierres&empresaId=${client.id}`;
+            if (role === 'Empleado' && userId) url3 += `&usuarioId=${userId}`;
+            
             const res3 = await (await fetch(url3)).json();
             renderCierres(res3.data?.cierres || [], client);
         } catch (e) { renderCierres([], client); }
@@ -1439,7 +1430,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!desde || !hasta) { showToast('⚠️ Completa las fechas'); return; }
         try {
             showToast('⏳ Calculando...');
-            const res = await apiPost({ action: 'calcular_cierre', empresaId, desde, hasta });
+            const payload = { 
+                action: 'calcular_cierre', 
+                empresaId, 
+                desde, 
+                hasta 
+            };
+            const role = sessionStorage.getItem('userRole');
+            if (role === 'Empleado') payload.usuarioId = sessionStorage.getItem('userId');
+            
+            const res = await apiPost(payload);
             if (res.status === 'success') {
                 const d = res.data;
                 const box = $('#cierre-preview');
@@ -1470,7 +1470,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const empresaName = contratoState.empresaActual?.name || '';
         try {
             showToast('⏳ Guardando cierre...');
-            const res = await apiPost({ action: 'save_cierre', empresaId, desde, hasta, nombreEmpresa: empresaName });
+            const payload = { 
+                action: 'save_cierre', 
+                empresaId, 
+                desde, 
+                hasta, 
+                nombreEmpresa: empresaName 
+            };
+            const role = sessionStorage.getItem('userRole');
+            if (role === 'Empleado') payload.usuarioId = sessionStorage.getItem('userId');
+
+            const res = await apiPost(payload);
             if (res.status === 'success') {
                 showToast(`✅ Cierre guardado · ${COP(res.data.totalCobro)}`);
                 cerrarModalCierre();
@@ -1489,7 +1499,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Cargar servicios del período para el detalle
         let servicios = [];
         try {
-            const url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_servicios&empresaId=${empresaId}&desde=${cierre.Desde}&hasta=${cierre.Hasta}`;
+            let url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_servicios&empresaId=${empresaId}&desde=${cierre.Desde}&hasta=${cierre.Hasta}`;
+            if (cierre.UsuarioID && cierre.UsuarioID !== 'Admin') {
+                url += `&usuarioId=${cierre.UsuarioID}`;
+            }
             const res = await (await fetch(url)).json();
             servicios = res.data?.servicios || [];
         } catch (e) { }
@@ -1563,7 +1576,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             showToast('⏳ Guardando servicio...');
-            const res = await apiPost({ action: 'save_servicio', empresaId, fecha, horas, descripcion });
+            const res = await apiPost({ 
+                action: 'save_servicio', 
+                empresaId, 
+                fecha, 
+                horas, 
+                descripcion,
+                usuarioId: sessionStorage.getItem('userId')
+            });
             if (res.status === 'success') {
                 showToast('✅ Servicio registrado');
                 $('#reporte-form').reset();
@@ -1581,11 +1601,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const empresaId = $('#filtro-servicio-empresa').value;
         const desde = $('#filtro-servicio-desde').value;
         const hasta = $('#filtro-servicio-hasta').value;
+        const role = sessionStorage.getItem('userRole');
+        const userId = sessionStorage.getItem('userId');
 
         let url = `${GOOGLE_SHEETS_CONFIG.appScriptUrl}?action=get_servicios`;
         if (empresaId) url += `&empresaId=${empresaId}`;
         if (desde) url += `&desde=${desde}`;
         if (hasta) url += `&hasta=${hasta}`;
+        if (role === 'Empleado' && userId) url += `&usuarioId=${userId}`;
 
         try {
             const res = await (await fetch(url)).json();
@@ -1664,10 +1687,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return res.json();
     }
 
-    // Cargar clientes al inicio: la función original ya existe.
-    // Este módulo se enlaza al evento de carga principal mediante el
-    // bloque de loadClientsFromGoogleSheets ya llamado en init().
-    // poblarSelectsEmpresas() se llama explícitamente tras renderClients().
+    // Initialización de la aplicación
+    async function init() {
+        const userId = sessionStorage.getItem('userId');
+        const userEmail = sessionStorage.getItem('userEmail');
+        const userRole = sessionStorage.getItem('userRole');
+
+        if (userEmail && userRole && userId) {
+            console.log(`🔐 Sesión recuperada para: ${userEmail} (${userRole}) [ID: ${userId}]`);
+            elements.loginModal.classList.add('hidden');
+            elements.appContainer.classList.remove('hidden');
+            
+            checkUserRole(userRole);
+            if (userRole === 'Admin') loadUsersFromGoogleSheets();
+            loadClientsFromGoogleSheets();
+        } else {
+            console.log('🚪 No hay sesión activa. Mostrando login.');
+            elements.loginModal.classList.remove('hidden');
+            elements.appContainer.classList.add('hidden');
+        }
+    }
+
+    // Ejecutar inicialización
+    init();
 
 }); // fin DOMContentLoaded
 
